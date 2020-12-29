@@ -19,7 +19,11 @@ add_subdirectory(webserver)
 add_subdirectory(db)
 add_subdirectory(api)
 add_subdirectory(python)
-add_subdirectory(mdns)
+
+# QMdnsEngine is currently not supported under MacOS because no Devs
+if(NOT APPLE)
+	add_subdirectory(mdns)
+endif()
 
 if(ENABLE_CEC)
 	add_subdirectory(cec)

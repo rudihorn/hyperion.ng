@@ -29,8 +29,6 @@ if (WIN32)
 	target_link_options(hyperiond PUBLIC /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 endif()
 
-include_directories(${QMDNS_INCLUDE_DIR})
-
 target_link_libraries(hyperiond
 	commandline
 	hyperion
@@ -43,9 +41,14 @@ target_link_libraries(hyperiond
 	database
 	python
 	resources
-	mdns
 	Qt5::Widgets
 )
+
+# QMdnsEngine is currently not supported under MacOS because no Devs
+if(NOT APPLE)
+	include_directories(${QMDNS_INCLUDE_DIR})
+	target_link_libraries(hyperiond mdns)
+endif()
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.12")
 	target_link_libraries( hyperiond ${Python3_LIBRARIES} )
@@ -55,7 +58,7 @@ endif()
 
 if (ENABLE_AVAHI)
 	target_link_libraries(hyperiond bonjour)
-endif ()
+endif()
 
 if (ENABLE_AMLOGIC)
 	target_link_libraries(hyperiond
@@ -126,10 +129,6 @@ if(NOT WIN32)
 else()
 	install ( TARGETS hyperiond DESTINATION "bin" COMPONENT "Hyperion" )
 	install ( FILES ${CMAKE_SOURCE_DIR}/effects/readme.txt DESTINATION "effects" COMPONENT "Hyperion" )
-
-	#set( CMAKE_INSTALL_UCRT_LIBRARIES TRUE )
-	#set( CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE )
-	#include( InstallRequiredSystemLibraries )
 endif()
 
 if(CMAKE_HOST_UNIX)
@@ -151,8 +150,8 @@ endif()
 # Deploy all dependencies for package creation (not for OSX)
 include(${CMAKE_SOURCE_DIR}/cmake/Dependencies.cmake)
 
-if (NOT ENABLE_OSX AND NOT WIN32) # Unix
+if(NOT APPLE AND NOT WIN32) # Unix
 	DeployUnix("hyperiond")
 elseif(WIN32) # Windows
 	DeployWindows("hyperiond")
-endif ()
+endif()

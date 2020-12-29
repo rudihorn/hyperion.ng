@@ -16,32 +16,28 @@ endif()
 #  QMdnsEngine
 #=============================================================================
 
-set(QMDNS_INSTALL_DIR ${CMAKE_BINARY_DIR})
+set(QMDNS_INSTALL_DIR "${CMAKE_BINARY_DIR}")
 
 include(ExternalProject)
 ExternalProject_Add(
 	qmdnsengine
-    PREFIX                ${CMAKE_BINARY_DIR}/dependencies/external/qmdnsengine
+    PREFIX                "${CMAKE_BINARY_DIR}/dependencies/external/qmdnsengine"
     DOWNLOAD_COMMAND      "" # Disable download step
-    SOURCE_DIR            ${CMAKE_CURRENT_SOURCE_DIR}/external/qmdnsengine # Source dir for configuration
+    SOURCE_DIR            "${CMAKE_CURRENT_SOURCE_DIR}/external/qmdnsengine" # Source dir for configuration
     INSTALL_DIR           ${QMDNS_INSTALL_DIR}
-	CMAKE_CACHE_ARGS      -DCMAKE_INSTALL_PREFIX:PATH=${QMDNS_INSTALL_DIR} -DCMAKE_PREFIX_PATH:PATH=${Qt5Network_DIR}
+	CMAKE_CACHE_ARGS      -DCMAKE_INSTALL_PREFIX:PATH=${QMDNS_INSTALL_DIR} -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH:PATH=${Qt5Network_DIR}
 )
 
-set(QMDNS_INCLUDE_DIR ${QMDNS_INSTALL_DIR}/include)
+set(QMDNS_INCLUDE_DIR "${QMDNS_INSTALL_DIR}/include")
 set(QMDNS_INCLUDE_DIR ${QMDNS_INCLUDE_DIR} PARENT_SCOPE)
 
-include_directories(${QMDNS_INCLUDE_DIR})
-
 if(WIN32)
-	FILE(GLOB QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/qmdnsengine*)
+	set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/qmdnsengine.lib)
 	set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)
 else()
-	FILE(GLOB QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/libqmdnsengine*)
+	set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/libqmdnsengine.so)
 	set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)
 endif ()
-
-mark_as_advanced (QMDNS_INCLUDE_DIR QMDNS_LIBRARIES)
 
 #=============================================================================
 # FLATBUFFER

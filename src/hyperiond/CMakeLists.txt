@@ -14,8 +14,6 @@ if (WIN32)
 	generate_win_rc_file(hyperiond)
 endif()
 
-include_directories(${QMDNS_INCLUDE_DIR})
-
 add_executable(hyperiond
 	console.h
 	hyperiond.h
@@ -30,6 +28,8 @@ add_executable(hyperiond
 if (WIN32)
 	target_link_options(hyperiond PUBLIC /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 endif()
+
+include_directories(${QMDNS_INCLUDE_DIR})
 
 target_link_libraries(hyperiond
 	commandline

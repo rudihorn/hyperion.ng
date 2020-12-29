@@ -12,4 +12,4 @@
 	branch = master
 [submodule "dependencies/external/qmdnsengine"]
 	path = dependencies/external/qmdnsengine
-	url = https://github.com/nitroshare/qmdnsengine
+	url = https://github.com/nitroshare/qmdnsengine.git

@@ -68,7 +68,9 @@
 class HyperionIManager;
 class SysTray;
 class JsonServer;
-class MdnsEngineWrapper;
+#ifndef __APPLE__
+	class MdnsEngineWrapper;
+#endif
 class BonjourBrowserWrapper;
 class WebServer;
 class SettingsManager;
@@ -165,7 +167,9 @@ private:
 	Logger*                    _log;
 	HyperionIManager*          _instanceManager;
 	AuthManager*               _authManager;
+#ifndef __APPLE__
 	MdnsEngineWrapper*         _mDNSEngineWrapper;
+#endif
 	BonjourBrowserWrapper*     _bonjourBrowserWrapper;
 	NetOrigin*                 _netOrigin;
 	PythonInit*                _pyInit;

@@ -14,6 +14,8 @@ if (WIN32)
 	generate_win_rc_file(hyperiond)
 endif()
 
+include_directories(${QMDNS_INCLUDE_DIR})
+
 add_executable(hyperiond
 	console.h
 	hyperiond.h

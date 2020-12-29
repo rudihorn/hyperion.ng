@@ -33,11 +33,13 @@ set(QMDNS_INCLUDE_DIR ${QMDNS_INCLUDE_DIR} PARENT_SCOPE)
 
 if(WIN32)
 	set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/qmdnsengine.lib)
-	set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)
+elseif(APPLE)
+	set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/libqmdnsengine.dylib)
 else()
 	set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/libqmdnsengine.so)
-	set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)
-endif ()
+endif()
+
+set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)
 
 #=============================================================================
 # FLATBUFFER

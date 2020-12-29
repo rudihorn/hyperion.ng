@@ -17,25 +17,23 @@ endif()
 #=============================================================================
 
 if(NOT APPLE)
-	set(QMDNS_INSTALL_DIR "${CMAKE_BINARY_DIR}")
-
 	include(ExternalProject)
 	ExternalProject_Add(
 		qmdnsengine
 		PREFIX                "${CMAKE_BINARY_DIR}/dependencies/external/qmdnsengine"
 		DOWNLOAD_COMMAND      "" # Disable download step
 		SOURCE_DIR            "${CMAKE_CURRENT_SOURCE_DIR}/external/qmdnsengine" # Source dir for configuration
-		INSTALL_DIR           ${QMDNS_INSTALL_DIR}
-		CMAKE_CACHE_ARGS      -DCMAKE_INSTALL_PREFIX:PATH=${QMDNS_INSTALL_DIR} -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH:PATH=${Qt5Network_DIR}
+		INSTALL_DIR           ${CMAKE_BINARY_DIR}
+		CMAKE_CACHE_ARGS      -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR} -DCMAKE_PREFIX_PATH:PATH=${Qt5Network_DIR}
 	)
 
-	set(QMDNS_INCLUDE_DIR "${QMDNS_INSTALL_DIR}/include")
+	set(QMDNS_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
 	set(QMDNS_INCLUDE_DIR ${QMDNS_INCLUDE_DIR} PARENT_SCOPE)
 
 	if(WIN32)
-		set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/qmdnsengine.lib)
+		set(QMDNS_LIBRARIES ${CMAKE_BINARY_DIR}/lib/qmdnsengine.lib)
 	else()
-		set(QMDNS_LIBRARIES ${QMDNS_INSTALL_DIR}/lib/libqmdnsengine.so)
+		set(QMDNS_LIBRARIES ${CMAKE_BINARY_DIR}/lib/libqmdnsengine.so)
 	endif()
 
 	set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)

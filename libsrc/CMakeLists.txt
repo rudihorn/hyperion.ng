@@ -19,6 +19,7 @@ add_subdirectory(webserver)
 add_subdirectory(db)
 add_subdirectory(api)
 add_subdirectory(python)
+add_subdirectory(mdns)
 
 if(ENABLE_CEC)
 	add_subdirectory(cec)

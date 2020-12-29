@@ -20,6 +20,9 @@
 
 #include <HyperionConfig.h> // Required to determine the cmake options
 
+// mDNS engine
+#include <mdns/mdnsenginewrapper.h>
+
 // bonjour browser
 #ifdef ENABLE_AVAHI
 #include <bonjour/bonjourbrowserwrapper.h>
@@ -65,6 +68,7 @@ HyperionDaemon::HyperionDaemon(const QString& rootPath, QObject* parent, bool lo
 	: QObject(parent), _log(Logger::getInstance("DAEMON"))
 	  , _instanceManager(new HyperionIManager(rootPath, this, readonlyMode))
 	  , _authManager(new AuthManager(this, readonlyMode))
+	  , _mDNSEngineWrapper(new MdnsEngineWrapper)
 #ifdef ENABLE_AVAHI
 	  , _bonjourBrowserWrapper(new BonjourBrowserWrapper())
 #endif
@@ -246,6 +250,7 @@ void HyperionDaemon::freeObjects()
 	_bonjourBrowserWrapper = nullptr;
 #endif
 
+	delete _mDNSEngineWrapper;
 	delete _amlGrabber;
 	delete _dispmanx;
 	delete _fbGrabber;

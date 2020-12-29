@@ -68,6 +68,7 @@
 class HyperionIManager;
 class SysTray;
 class JsonServer;
+class MdnsEngineWrapper;
 class BonjourBrowserWrapper;
 class WebServer;
 class SettingsManager;
@@ -164,6 +165,7 @@ private:
 	Logger*                    _log;
 	HyperionIManager*          _instanceManager;
 	AuthManager*               _authManager;
+	MdnsEngineWrapper*         _mDNSEngineWrapper;
 	BonjourBrowserWrapper*     _bonjourBrowserWrapper;
 	NetOrigin*                 _netOrigin;
 	PythonInit*                _pyInit;

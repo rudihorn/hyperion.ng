@@ -13,6 +13,31 @@ if(ENABLE_WS281XPWM)
 endif()
 
 #=============================================================================
+#  QMdnsEngine
+#=============================================================================
+
+set(QMDNS_INSTALL_DIR "${CMAKE_BINARY_DIR}/dependencies/external/qmdnsengine")
+
+include(ExternalProject)
+ExternalProject_Add(
+	qmdnsengine
+    PREFIX                "${CMAKE_BINARY_DIR}/dependencies/external/qmdnsengine"
+    DOWNLOAD_COMMAND      "" # Disable download step
+    SOURCE_DIR            "${CMAKE_CURRENT_SOURCE_DIR}/external/qmdnsengine" # Source dir for configuration
+    INSTALL_DIR           ${QMDNS_INSTALL_DIR}
+	CMAKE_CACHE_ARGS      -DCMAKE_INSTALL_PREFIX:PATH=${QMDNS_INSTALL_DIR} -DCMAKE_PREFIX_PATH:PATH=${Qt5Network_DIR}
+)
+
+set(QMDNS_INCLUDE_DIR "${QMDNS_INSTALL_DIR}/include")
+set(QMDNS_INCLUDE_DIR ${QMDNS_INCLUDE_DIR} PARENT_SCOPE)
+
+set(QMDNS_LIBRARIES "${QMDNS_INSTALL_DIR}/lib/qmdnsengine${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(QMDNS_LIBRARIES ${QMDNS_LIBRARIES} PARENT_SCOPE)
+
+set(QMDNS_LIBRARY "${QMDNS_INSTALL_DIR}/bin")
+set(QMDNS_LIBRARY ${QMDNS_LIBRARY} PARENT_SCOPE)
+
+#=============================================================================
 # FLATBUFFER
 #=============================================================================
 

@@ -44,6 +44,10 @@ GrabberWrapper::~GrabberWrapper()
 
 bool GrabberWrapper::start()
 {
+	Debug(_log, "Grabber start() - open()");
+
+	open();
+
 	if (!_timer->isActive())
 	{
 		// Start the timer with the pre configured interval
@@ -165,7 +169,10 @@ void GrabberWrapper::handleSettingsUpdate(settings::type type, const QJsonDocume
 		_ggrabber->setWidthHeight(obj["width"].toInt(96), obj["height"].toInt(96));
 
 		// display index for MAC
-		_ggrabber->setDisplayIndex(obj["display"].toInt(0));
+		std::cout << "config: " << config.toJson().toStdString() << std::endl;
+		std::cout << "obj[input]: " << obj["input"].toString().toStdString() << std::endl;
+
+		_ggrabber->setDisplayIndex(obj["input"].toInt(0));
 
 		// device path for Framebuffer
 		_ggrabber->setDevicePath(obj["device"].toString("/dev/fb0"));
@@ -181,7 +188,7 @@ void GrabberWrapper::handleSettingsUpdate(settings::type type, const QJsonDocume
 			obj["cropBottom"].toInt(0));
 
 		// eval new update time
-		updateTimer(1000/obj["frequency_Hz"].toInt(10));
+		updateTimer(1000/obj["fps"].toInt(10));
 	}
 }
 

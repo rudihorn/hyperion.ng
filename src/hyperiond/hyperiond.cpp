@@ -772,7 +772,7 @@ void HyperionDaemon::createGrabberQt(const QJsonObject& grabberConfig)
 	_qtGrabber = new QtWrapper(
 		_grabber_cropLeft, _grabber_cropRight, _grabber_cropTop, _grabber_cropBottom,
 		grabberConfig["pixelDecimation"].toInt(8),
-		grabberConfig["display"].toInt(0),
+		grabberConfig["input"].toInt(0),
 		_grabber_frequency);
 
 	// connect to HyperionDaemon signal

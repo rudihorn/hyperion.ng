@@ -15,7 +15,7 @@ class QtGrabber : public Grabber
 {
 public:
 
-	QtGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation, int display);
+	QtGrabber(int cropLeft=0, int cropRight=0, int cropTop=0, int cropBottom=0, int pixelDecimation=1, int display=0);
 
 	~QtGrabber() override;
 
@@ -58,6 +58,22 @@ public:
 	///
 	void setDisplayIndex(int index) override;
 
+	///
+	/// @brief Discover QT screens available (for configuration).
+	///
+	/// @param[in] params Parameters used to overwrite discovery default behaviour
+	///
+	/// @return A JSON structure holding a list of devices found
+	///
+	QJsonObject discover(const QJsonObject& params);
+
+	///
+	/// @brief Opens the input device.
+	///
+	/// @return Zero, on success (i.e. device is ready), else negative
+	///
+	bool open();
+
 private slots:
 	///
 	/// @brief is called whenever the current _screen changes it's geometry
@@ -93,4 +109,6 @@ private:
 	unsigned _src_x_max;
 	unsigned _src_y_max;
 	QScreen* _screen;
+
+	bool _isVirtual;
 };

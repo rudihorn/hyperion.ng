@@ -181,7 +181,12 @@ public:
 	///
 	virtual QIntList getAvailableDeviceFramerates(const QString& /*devicePath*/, const int& /*deviceInput*/, const PixelFormat& /*encFormat*/, const unsigned /*width*/, const unsigned /*height*/) const { return QIntList(); }
 
+	QString getGrabberName() const { return _grabberName; }
+	
 protected:
+
+	QString _grabberName;
+
 	ImageResampler _imageResampler;
 
 	bool _useImageResampler;

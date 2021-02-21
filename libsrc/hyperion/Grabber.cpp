@@ -1,7 +1,8 @@
 #include <hyperion/Grabber.h>
 
 Grabber::Grabber(const QString& grabberName, int width, int height, int cropLeft, int cropRight, int cropTop, int cropBottom)
-	: _imageResampler()
+	: _grabberName(grabberName)
+	, _imageResampler()
 	, _useImageResampler(true)
 	, _videoMode(VideoMode::VIDEO_2D)
 	, _flipMode(FlipMode::NO_CHANGE)
@@ -14,7 +15,7 @@ Grabber::Grabber(const QString& grabberName, int width, int height, int cropLeft
 	, _cropTop(0)
 	, _cropBottom(0)
 	, _enabled(true)
-	, _log(Logger::getInstance(grabberName.toUpper()))
+	, _log(Logger::getInstance(_grabberName.toUpper()))
 {
 	Grabber::setVideoMode(VideoMode::VIDEO_2D);
 	Grabber::setCropping(cropLeft, cropRight, cropTop, cropBottom);

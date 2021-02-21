@@ -17,6 +17,8 @@
 #include <leddevice/LedDeviceFactory.h>
 
 #include <hyperion/GrabberWrapper.h>
+#include <grabber/QtGrabber.h>
+
 #include <utils/jsonschema/QJsonFactory.h>
 #include <utils/jsonschema/QJsonSchemaChecker.h>
 #include <HyperionConfig.h>
@@ -1439,9 +1441,9 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 			QJsonObject inputSourcesDiscovered;
 			inputSourcesDiscovered.insert("sourceType", sourceType);
 
-			QJsonArray videoInputs;
-
 #if defined(ENABLE_V4L2) || defined(ENABLE_MF)
+
+			QJsonArray videoInputs;
 
 			if (sourceType == "video" )
 			{
@@ -1514,7 +1516,27 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 					videoInputs.append(device);
 				}
 			}
+			else
 #endif
+			{
+				Debug(_log, "sourceType: [%s]", QSTRING_CSTR(sourceType));
+				if (sourceType == "screen")
+				{
+
+					QJsonObject device;
+
+					#if defined(ENABLE_QT)
+					QtGrabber* grabber = new QtGrabber();
+
+					QJsonObject params;
+					device = grabber->discover(params);
+					videoInputs.append(device);
+					delete grabber;
+					#endif
+
+				}
+
+			}
 			inputSourcesDiscovered["video_sources"] = videoInputs;
 
 			Debug(_log, "response: [%s]", QString(QJsonDocument(inputSourcesDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());

@@ -189,6 +189,22 @@ private slots:
 	void updateTimer(int interval);
 
 protected:
+
+	///
+/// @brief Opens the input device.
+///
+/// @return True, on success (i.e. device is ready)
+///
+	virtual bool open() { return true; }
+
+	///
+	/// @brief Closes the input device.
+	///
+	/// @return True on success (i.e. device is closed)
+	///
+	virtual bool close() { return true; }
+
+
 	QString _grabberName;
 
 	/// The timer for generating events with the specified update rate

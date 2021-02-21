@@ -7,6 +7,14 @@
 #include <QGuiApplication>
 #include <QWidget>
 #include <QScreen>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+
+// Constants
+namespace {
+	const bool verbose = false;
+} //End of constants
 
 QtGrabber::QtGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation, int display)
 	: Grabber("QTGRABBER", 0, 0, cropLeft, cropRight, cropTop, cropBottom)
@@ -19,11 +27,9 @@ QtGrabber::QtGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom, i
 	, _src_x_max(0)
 	, _src_y_max(0)
 	, _screen(nullptr)
+	, _isVirtual(false)
 {
 	_useImageResampler = false;
-
-	// init
-	setupDisplay();
 }
 
 QtGrabber::~QtGrabber()
@@ -34,6 +40,11 @@ QtGrabber::~QtGrabber()
 void QtGrabber::freeResources()
 {
 	// Qt seems to hold the ownership of the QScreen pointers
+}
+
+bool QtGrabber::open()
+{
+	return setupDisplay();
 }
 
 bool QtGrabber::setupDisplay()
@@ -68,10 +79,21 @@ bool QtGrabber::setupDisplay()
 	}
 
 	// be sure the index is available
-	if(_display > unsigned(screens.size()-1))
+	if (_display > unsigned(screens.size() - 1))
 	{
-		Info(_log, "The requested display index '%d' is not available, falling back to display 0", _display);
-		_display = 0;
+
+		if (screens.at(0)->size() != screens.at(0)->virtualSize())
+		{
+			Info(_log, "Using vitual display across all screens");
+			_isVirtual = true;
+			_display = 0;
+
+		}
+		else
+		{
+			Info(_log, "The requested display index '%d' is not available, falling back to display 0", _display);
+			_display = 0;
+		}
 	}
 
 	// init the requested display
@@ -114,7 +136,16 @@ int QtGrabber::updateScreenDimensions(bool force)
 	if(!_screen)
 		return -1;
 
-	const QRect& geo = _screen->geometry();
+	QRect geo;
+
+	if (_isVirtual)
+	{
+		geo = _screen->virtualGeometry();
+	}
+	else
+	{
+		geo = _screen->geometry();
+	}
 	if (!force && _width == geo.width() && _height == geo.height())
 	{
 		// No update required
@@ -190,9 +221,107 @@ void QtGrabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned crop
 
 void QtGrabber::setDisplayIndex(int index)
 {
-	if(_display != unsigned(index))
+	if (_display != unsigned(index))
 	{
-		_display = unsigned(index);
+		if (!_isVirtual)
+		{
+			_display = unsigned(index);
+		}
+		else {
+			_display = 0;
+		}
 		setupDisplay();
 	}
+}
+
+QJsonObject QtGrabber::discover(const QJsonObject& params)
+{
+	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	QList<QScreen*> screens = QGuiApplication::screens();
+
+	QJsonObject inputsDiscovered;
+	inputsDiscovered["device"] = this->getGrabberName(); 
+	inputsDiscovered["device_name"] = "QT";
+	inputsDiscovered["type"] = "screen";
+
+	QJsonArray video_inputs;
+
+	if (!screens.isEmpty())
+	{
+		QJsonArray fps = { 1, 5, 10, 15, 20, 25, 30, 40, 50, 60 };
+
+		for (int i = 0; i < screens.size(); ++i)
+		{
+			QJsonObject in;
+
+			QString name = screens.at(i)->name();
+
+			int pos = name.lastIndexOf('\\');
+			if (pos != -1)
+			{
+				name = name.right(name.length()-pos-1);
+			}
+
+			in["name"] = name;
+			in["inputIdx"] = i;
+
+			QJsonArray formats;
+			QJsonObject format;
+
+			QJsonArray resolutionArray;
+
+			QJsonObject resolution;
+
+			resolution["width"] = screens.at(i)->size().width();
+			resolution["height"] = screens.at(i)->size().height();
+			resolution["fps"] = fps;
+
+			resolutionArray.append(resolution);
+
+			format["resolutions"] = resolutionArray;
+			formats.append(format);
+
+			in["formats"] = formats;
+			video_inputs.append(in);
+		}
+
+		if (screens.at(0)->size() != screens.at(0)->virtualSize())
+		{
+			QJsonObject in;
+			in["name"] = "All Displays";
+			in["inputIdx"] = screens.size();
+			in["virtual"] = true;
+
+			QJsonArray formats;
+			QJsonObject format;
+
+			QJsonArray resolutionArray;
+
+			QJsonObject resolution;
+
+			resolution["width"] = screens.at(0)->virtualSize().width();
+			resolution["height"] = screens.at(0)->virtualSize().height();
+			resolution["fps"] = fps;
+
+			resolutionArray.append(resolution);
+
+			format["resolutions"] = resolutionArray;
+			formats.append(format);
+
+			in["formats"] = formats;
+			video_inputs.append(in);
+		}
+	}
+	else
+	{
+		DebugIf(verbose, _log, "No displays found to capture from!");
+	}
+
+	inputsDiscovered["video_inputs"] = video_inputs;
+
+	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	return inputsDiscovered;
+
 }

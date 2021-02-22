@@ -1440,10 +1440,9 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 		{
 			QJsonObject inputSourcesDiscovered;
 			inputSourcesDiscovered.insert("sourceType", sourceType);
+			QJsonArray videoInputs;
 
 #if defined(ENABLE_V4L2) || defined(ENABLE_MF)
-
-			QJsonArray videoInputs;
 
 			if (sourceType == "video" )
 			{
@@ -1522,7 +1521,6 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 				Debug(_log, "sourceType: [%s]", QSTRING_CSTR(sourceType));
 				if (sourceType == "screen")
 				{
-
 					QJsonObject device;
 
 					#if defined(ENABLE_QT)
@@ -1533,7 +1531,6 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 					videoInputs.append(device);
 					delete grabber;
 					#endif
-
 				}
 
 			}

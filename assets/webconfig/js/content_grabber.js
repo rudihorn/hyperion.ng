@@ -751,7 +751,7 @@ $(document).ready(function () {
       enumTitelVals.push($.i18n('edt_conf_grabber_discovered_none'));
 
       conf_editor_video.getEditor('root.grabberV4L2').disable();
-      showAllVideoInputOptions(conf_editor_video, grabberV4L2, false);
+      showAllVideoInputOptions(conf_editor_video, "grabberV4L2", false);
     }
     else {
       for (const device of discoveryInfo) {

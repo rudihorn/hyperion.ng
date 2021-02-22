@@ -100,14 +100,16 @@ private:
 
 private:
 
-	unsigned _display;
+	int _display;
+	int _numberOfSDisplays;
+
 	int _pixelDecimation;
-	unsigned _calculatedWidth;
-	unsigned _calculatedHeight;
-	unsigned _src_x;
-	unsigned _src_y;
-	unsigned _src_x_max;
-	unsigned _src_y_max;
+	int _calculatedWidth;
+	int _calculatedHeight;
+	int _src_x;
+	int _src_y;
+	int _src_x_max;
+	int _src_y_max;
 	QScreen* _screen;
 
 	bool _isVirtual;

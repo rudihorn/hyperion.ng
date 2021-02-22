@@ -373,7 +373,7 @@ void HyperionDaemon::handleSettingsUpdate(settings::type settingsType, const QJs
 		#ifdef ENABLE_OSX
 		QString type = "osx";
 		#else
-		QString type = grabberConfig["type"].toString("auto");
+		QString type = grabberConfig["device"].toString("auto");
 		#endif
 
 		// auto eval of type

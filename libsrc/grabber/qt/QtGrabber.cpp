@@ -18,7 +18,7 @@ namespace {
 
 QtGrabber::QtGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation, int display)
 	: Grabber("QTGRABBER", 0, 0, cropLeft, cropRight, cropTop, cropBottom)
-	, _display(unsigned(display))
+	, _display(display)
 	, _pixelDecimation(pixelDecimation)
 	, _calculatedWidth(0)
 	, _calculatedHeight(0)
@@ -44,13 +44,14 @@ void QtGrabber::freeResources()
 
 bool QtGrabber::open()
 {
-	return setupDisplay();
+	return true;
 }
 
 bool QtGrabber::setupDisplay()
 {
 	// cleanup last screen
 	freeResources();
+	_numberOfSDisplays = 0;
 
 	QScreen* primary = QGuiApplication::primaryScreen();
 	QList<QScreen *> screens = QGuiApplication::screens();
@@ -60,7 +61,9 @@ bool QtGrabber::setupDisplay()
 		screens.prepend(primary);
 		// remove last main screen if twice in list
 		if(screens.lastIndexOf(primary) > 0)
+		{
 			screens.removeAt(screens.lastIndexOf(primary));
+		}
 	}
 
 	if(screens.isEmpty())
@@ -69,22 +72,25 @@ bool QtGrabber::setupDisplay()
 		return false;
 	}
 
+	_numberOfSDisplays = screens.size();
+
 	Info(_log,"Available Displays:");
 	int index = 0;
-	for(auto screen : screens)
+	for(auto * screen : qAsConst(screens))
 	{
 		const QRect geo = screen->geometry();
 		Info(_log,"Display %d: Name:%s Geometry: (L,T,R,B) %d,%d,%d,%d Depth:%dbit", index, QSTRING_CSTR(screen->name()), geo.left(), geo.top() ,geo.right(), geo.bottom(), screen->depth());
-		index++;
+		++index;
 	}
 
+	_isVirtual = false;
 	// be sure the index is available
-	if (_display > unsigned(screens.size() - 1))
+	if (_display > _numberOfSDisplays - 1 )
 	{
 
 		if (screens.at(0)->size() != screens.at(0)->virtualSize())
 		{
-			Info(_log, "Using vitual display across all screens");
+			Info(_log, "Using virtual display across all screens");
 			_isVirtual = true;
 			_display = 0;
 
@@ -113,7 +119,11 @@ void QtGrabber::geometryChanged(const QRect &geo)
 
 int QtGrabber::grabFrame(Image<ColorRgb> & image)
 {
-	if (!_enabled) return 0;
+	if (!_enabled)
+	{
+		return 0;
+	}
+
 	if(_screen == nullptr)
 	{
 		// reinit, this will disable capture on failure
@@ -123,18 +133,22 @@ int QtGrabber::grabFrame(Image<ColorRgb> & image)
 
 	QPixmap originalPixmap = _screen->grabWindow(0, _src_x, _src_y, _src_x_max, _src_y_max);
 	QImage imageFrame = originalPixmap.toImage().scaled(_calculatedWidth, _calculatedHeight).convertToFormat( QImage::Format_RGB888);
-	image.resize(_calculatedWidth, _calculatedHeight);
+	image.resize(static_cast<uint>(_calculatedWidth), static_cast<uint>(_calculatedHeight));
 
 	for (int y = 0; y < imageFrame.height(); y++)
-		memcpy((unsigned char*)image.memptr() + y * image.width() * 3, (unsigned char*)imageFrame.scanLine(y), imageFrame.width() * 3);
+	{
+		memcpy((unsigned char*)image.memptr() + y * image.width() * 3, static_cast<unsigned char*>(imageFrame.scanLine(y)), imageFrame.width() * 3);
+	}
 
 	return 0;
 }
 
 int QtGrabber::updateScreenDimensions(bool force)
 {
-	if(!_screen)
+	if(_screen == nullptr)
+	{
 		return -1;
+	}
 
 	QRect geo;
 
@@ -156,7 +170,8 @@ int QtGrabber::updateScreenDimensions(bool force)
 	_width  = geo.width();
 	_height = geo.height();
 
-	int width=0, height=0;
+	int width=0;
+	int height=0;
 
 	// Image scaling is performed by Qt
 	width  =  (_width > (_cropLeft + _cropRight))
@@ -221,11 +236,11 @@ void QtGrabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned crop
 
 void QtGrabber::setDisplayIndex(int index)
 {
-	if (_display != unsigned(index))
+	if (_display != index)
 	{
-		if (!_isVirtual)
+		if (index <= _numberOfSDisplays)
 		{
-			_display = unsigned(index);
+			_display = index;
 		}
 		else {
 			_display = 0;
@@ -241,7 +256,7 @@ QJsonObject QtGrabber::discover(const QJsonObject& params)
 	QList<QScreen*> screens = QGuiApplication::screens();
 
 	QJsonObject inputsDiscovered;
-	inputsDiscovered["device"] = this->getGrabberName(); 
+	inputsDiscovered["device"] = "qt";
 	inputsDiscovered["device_name"] = "QT";
 	inputsDiscovered["type"] = "screen";
 

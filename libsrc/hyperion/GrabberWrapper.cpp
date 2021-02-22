@@ -169,9 +169,6 @@ void GrabberWrapper::handleSettingsUpdate(settings::type type, const QJsonDocume
 		_ggrabber->setWidthHeight(obj["width"].toInt(96), obj["height"].toInt(96));
 
 		// display index for MAC
-		std::cout << "config: " << config.toJson().toStdString() << std::endl;
-		std::cout << "obj[input]: " << obj["input"].toString().toStdString() << std::endl;
-
 		_ggrabber->setDisplayIndex(obj["input"].toInt(0));
 
 		// device path for Framebuffer

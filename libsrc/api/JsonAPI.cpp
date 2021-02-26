@@ -18,7 +18,10 @@
 
 #include <hyperion/GrabberWrapper.h>
 #include <grabber/QtGrabber.h>
-#include <grabber/MFGrabber.h>
+
+#ifdef _WIN32
+	#include <grabber/MFGrabber.h>
+#endif
 
 #include <utils/jsonschema/QJsonFactory.h>
 #include <utils/jsonschema/QJsonSchemaChecker.h>
@@ -1447,10 +1450,12 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 
 			if (sourceType == "video" )
 			{
+				#ifdef ENABLE_MF
 				MFGrabber* grabber = new MFGrabber();
 				QJsonObject params;
 				videoInputs = grabber->discover(params);
 				delete grabber;
+				#endif
 			}
 			else
 #endif
@@ -1460,7 +1465,7 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 				{
 					QJsonObject device;
 
-					#if defined(ENABLE_QT)
+					#ifdef ENABLE_QT
 					QtGrabber* grabber = new QtGrabber();
 
 					QJsonObject params;

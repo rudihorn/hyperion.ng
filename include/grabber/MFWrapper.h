@@ -8,7 +8,7 @@ class MFWrapper : public GrabberWrapper
 	Q_OBJECT
 
 public:
-	MFWrapper(const QString & device, const unsigned grabWidth, const unsigned grabHeight, const unsigned fps, int pixelDecimation, QString flipMode);
+	MFWrapper();
 	~MFWrapper() override;
 
 	bool getSignalDetectionEnable() const;
@@ -24,6 +24,9 @@ public slots:
 	void setSignalDetectionEnable(bool enable);
 	void setCecDetectionEnable(bool enable);
 	bool setDevice(const QString& device);
+	bool setWidthHeight(int width, int height);
+	bool setFramerate(int fps);
+	void setFlipMode(QString flipMode);
 	void setFpsSoftwareDecimation(int decimation);
 	bool setEncoding(QString enc);
 	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);

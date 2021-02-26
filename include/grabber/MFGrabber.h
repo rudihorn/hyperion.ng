@@ -11,6 +11,9 @@
 #include <QRectF>
 #include <QMap>
 #include <QMultiMap>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
 
 // utils includes
 #include <utils/PixelFormat.h>
@@ -52,19 +55,13 @@ public:
 		GUID guid		= GUID_NULL;
 	};
 
-	MFGrabber(const QString & device, const unsigned width, const unsigned height, const unsigned fps, int pixelDecimation, QString flipMode);
+	MFGrabber();
 	~MFGrabber() override;
 
 	void receive_image(const void *frameImageBuffer, int size);
 	QRectF getSignalDetectionOffset() const { return QRectF(_x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max); }
 	bool getSignalDetectionEnabled() const { return _signalDetectionEnabled; }
 	bool getCecDetectionEnabled() const { return _cecDetectionEnabled; }
-	QStringList getDevices() const override;
-	QString getDeviceName(const QString& devicePath) const override { return devicePath; }
-	QMultiMap<QString, int> getDeviceInputs(const QString& devicePath) const override { return { {devicePath, 0} }; }
-	QStringList getAvailableEncodingFormats(const QString& devicePath, const int& /*deviceInput*/) const override;
-	QMultiMap<int, int> getAvailableDeviceResolutions(const QString& devicePath, const int& /*deviceInput*/, const PixelFormat& encFormat) const override;
-	QIntList getAvailableDeviceFramerates(const QString& devicePath, const int& /*deviceInput*/, const PixelFormat& encFormat, const unsigned width, const unsigned height) const override;
 	void setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold) override;
 	void setSignalDetectionOffset( double verticalMin, double horizontalMin, double verticalMax, double horizontalMax) override;
 	void setSignalDetectionEnable(bool enable) override;
@@ -77,10 +74,17 @@ public:
 	bool setEncoding(QString enc);
 	void setFlipMode(QString flipMode);
 	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
-
 	void reloadGrabber();
 
+	///
+	/// @brief Discover available Media Foundation USB devices (for configuration).
+	/// @param[in] params Parameters used to overwrite discovery default behaviour
+	/// @return A JSON structure holding a list of USB devices found
+	///
+	QJsonArray discover(const QJsonObject& params);
+
 public slots:
+	bool open();
 	bool start();
 	void stop();
 	void newThreadFrame(unsigned int _workerIndex, const Image<ColorRgb>& image,unsigned int sourceCount);
@@ -104,15 +108,10 @@ private:
 	SourceReaderCB*								_sourceReaderCB;
 	PixelFormat									_pixelFormat, _pixelFormatConfig;
 	int											_pixelDecimation,
-												_lineLength,
-												_frameByteSize,
-												_noSignalCounterThreshold,
-												_noSignalCounter,
+												_lineLength, _frameByteSize,
+												_noSignalCounterThreshold, _noSignalCounter,
 												_fpsSoftwareDecimation,
-												_brightness,
-												_contrast,
-												_saturation,
-												_hue;
+												_brightness, _contrast, _saturation, _hue;
 	volatile unsigned int						_currentFrame;
 	ColorRgb									_noSignalThresholdColor;
 	bool										_signalDetectionEnabled,

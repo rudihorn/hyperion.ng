@@ -5,9 +5,9 @@
 // qt
 #include <QTimer>
 
-MFWrapper::MFWrapper(const QString &device, unsigned grabWidth, unsigned grabHeight, unsigned fps, int pixelDecimation, QString flipMode)
-	: GrabberWrapper("V4L2:MEDIA_FOUNDATION", &_grabber, grabWidth, grabHeight, 10)
-	, _grabber(device, grabWidth, grabHeight, fps, pixelDecimation, flipMode)
+MFWrapper::MFWrapper()
+	: GrabberWrapper("V4L2:MEDIA_FOUNDATION", &_grabber, 0, 0, 10)
+	, _grabber()
 {
 	_ggrabber = &_grabber;
 
@@ -25,7 +25,7 @@ MFWrapper::~MFWrapper()
 
 bool MFWrapper::start()
 {
-	return ( _grabber.start() && GrabberWrapper::start());
+	return ( _grabber.open() && _grabber.start() && GrabberWrapper::start());
 }
 
 void MFWrapper::stop()
@@ -82,6 +82,21 @@ bool MFWrapper::getCecDetectionEnable() const
 bool MFWrapper::setDevice(const QString& device)
 {
 	return _grabber.setDevice(device);
+}
+
+bool MFWrapper::setWidthHeight(int width, int height)
+{
+	return _grabber.setWidthHeight(width, height);
+}
+
+bool MFWrapper::setFramerate(int fps)
+{
+	return _grabber.setFramerate(fps);
+}
+
+void MFWrapper::setFlipMode(QString flipMode)
+{
+	_grabber.setFlipMode(flipMode);
 }
 
 void MFWrapper::setFpsSoftwareDecimation(int decimation)

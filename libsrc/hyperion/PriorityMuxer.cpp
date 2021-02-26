@@ -5,7 +5,6 @@
 // qt incl
 #include <QDateTime>
 #include <QTimer>
-#include <QDebug>
 
 // Hyperion includes
 #include <hyperion/PriorityMuxer.h>

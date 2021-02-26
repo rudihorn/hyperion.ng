@@ -18,6 +18,7 @@
 
 #include <hyperion/GrabberWrapper.h>
 #include <grabber/QtGrabber.h>
+#include <grabber/MFGrabber.h>
 
 #include <utils/jsonschema/QJsonFactory.h>
 #include <utils/jsonschema/QJsonSchemaChecker.h>
@@ -1446,74 +1447,10 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 
 			if (sourceType == "video" )
 			{
-				//for (const auto& instance : GrabberWrapper::getInstance()->getDevices())
-				//{
-
-				for (const auto& devicePath : GrabberWrapper::getInstance()->getDevices())
-				{
-
-					QJsonObject device;
-					device["device"] = devicePath;
-					device["device_name"] = GrabberWrapper::getInstance()->getDeviceName(devicePath);
-					device["type"] = "v4l2";
-
-					QJsonArray video_inputs;
-
-					QMultiMap<QString, int> inputs = GrabberWrapper::getInstance()->getDeviceInputs(devicePath);
-					for (auto input = inputs.begin(); input != inputs.end(); input++)
-					{
-						QJsonObject in;
-						in["name"] = input.key();
-						in["inputIdx"] = input.value();
-
-						QJsonArray standards;
-						QList<VideoStandard> videoStandards = GrabberWrapper::getInstance()->getAvailableDeviceStandards(devicePath, input.value());
-						for (auto standard : videoStandards)
-						{
-							standards.append(VideoStandard2String(standard));
-						}
-						if (!standards.isEmpty())
-						{
-							in["standards"] = standards;
-						}
-
-						QJsonArray formats;
-						QStringList encodingFormats = GrabberWrapper::getInstance()->getAvailableEncodingFormats(devicePath, input.value());
-						for (auto encodingFormat : encodingFormats)
-						{
-							QJsonObject format;
-							format["format"] = encodingFormat;
-
-							QJsonArray resolutionArray;
-							QMultiMap<int, int> deviceResolutions = GrabberWrapper::getInstance()->getAvailableDeviceResolutions(devicePath, input.value(), parsePixelFormat(encodingFormat));
-							for (auto width_height = deviceResolutions.begin(); width_height != deviceResolutions.end(); width_height++)
-							{
-								QJsonObject resolution;
-								resolution["width"] = width_height.key();
-								resolution["height"] = width_height.value();
-
-								QJsonArray fps;
-								QIntList framerates = GrabberWrapper::getInstance()->getAvailableDeviceFramerates(devicePath, input.value(), parsePixelFormat(encodingFormat), width_height.key(), width_height.value());
-								for (auto framerate : framerates)
-								{
-									fps.append(framerate);
-								}
-
-								resolution["fps"] = fps;
-								resolutionArray.append(resolution);
-							}
-
-							format["resolutions"] = resolutionArray;
-							formats.append(format);
-						}
-						in["formats"] = formats;
-						video_inputs.append(in);
-
-					}
-
-					device["video_inputs"] = video_inputs;
-					videoInputs.append(device);
-				}
+				MFGrabber* grabber = new MFGrabber();
+				QJsonObject params;
+				videoInputs = grabber->discover(params);
+				delete grabber;
 			}
 			else
 #endif

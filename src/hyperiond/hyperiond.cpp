@@ -599,13 +599,19 @@ void HyperionDaemon::handleSettingsUpdate(settings::type settingsType, const QJs
 #if defined(ENABLE_MF)
 		if (_mfGrabber == nullptr)
 		{
-			_mfGrabber = new MFWrapper(
-					grabberConfig["device"].toString("auto"),
-					grabberConfig["width"].toInt(0),
-					grabberConfig["height"].toInt(0),
-					grabberConfig["fps"].toInt(15),
-					grabberConfig["sizeDecimation"].toInt(8),
-					grabberConfig["flip"].toString("auto"));
+			_mfGrabber = new MFWrapper();
+
+			// Device
+			_mfGrabber->setDevice(grabberConfig["device"].toString("auto"));
+
+			// Width/Height
+			_mfGrabber->setWidthHeight(grabberConfig["width"].toInt(0), grabberConfig["height"].toInt(0));
+
+			// FPS
+			_mfGrabber->setFramerate(grabberConfig["fps"].toInt(15));
+
+			// Flip mode
+			_mfGrabber->setFlipMode(grabberConfig["flip"].toString("NO_CHANGE"));
 
 			// Image cropping
 			_mfGrabber->setCropping(

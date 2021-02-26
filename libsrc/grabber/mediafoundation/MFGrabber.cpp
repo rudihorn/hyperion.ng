@@ -4,13 +4,13 @@
 // Constants
 namespace { const bool verbose = false; }
 
-MFGrabber::MFGrabber(const QString & device, unsigned width, unsigned height, unsigned fps, int pixelDecimation, QString flipMode)
+MFGrabber::MFGrabber()
 	: Grabber("V4L2:MEDIA_FOUNDATION")
-	, _currentDeviceName(device)
-	, _newDeviceName(device)
+	, _currentDeviceName("auto")
+	, _newDeviceName("auto")
 	, _hr(S_FALSE)
 	, _sourceReader(nullptr)
-	, _pixelDecimation(pixelDecimation)
+	, _sourceReaderCB(nullptr)
 	, _lineLength(-1)
 	, _frameByteSize(-1)
 	, _noSignalCounterThreshold(40)
@@ -31,16 +31,10 @@ MFGrabber::MFGrabber(const QString & device, unsigned width, unsigned height, un
 	, _x_frac_max(0.75)
 	, _y_frac_max(0.75)
 {
-	setWidthHeight(width, height);
-	setFramerate(fps);
-	setFlipMode(flipMode);
-
 	CoInitializeEx(0, COINIT_MULTITHREADED);
 	_hr = MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET);
 	if(FAILED(_hr))
 		CoUninitialize();
-	else
-		_sourceReaderCB = new SourceReaderCB(this);
 }
 
 MFGrabber::~MFGrabber()
@@ -54,6 +48,52 @@ MFGrabber::~MFGrabber()
 		CoUninitialize();
 }
 
+bool MFGrabber::open()
+{
+	if(SUCCEEDED(_hr))
+	{
+		_sourceReaderCB = new SourceReaderCB(this);
+		return (_sourceReaderCB != nullptr);
+	}
+
+	return false;
+}
+
+bool MFGrabber::start()
+{
+	if(!_initialized)
+	{
+		_threadManager.start();
+		DebugIf(verbose, _log, "Decoding threads: %d",_threadManager._maxThreads);
+
+		if(init())
+		{
+			start_capturing();
+			Info(_log, "Started");
+			return true;
+		}
+		else
+			_currentDeviceName = "auto";
+	}
+
+	return false;
+}
+
+void MFGrabber::stop()
+{
+	if(_initialized)
+	{
+		_initialized = false;
+		_threadManager.stop();
+		uninit_device();
+		// restore pixelformat to configs value if it is not auto or device name has not changed
+		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
+			_pixelFormat = _pixelFormatConfig;
+		_deviceProperties.clear();
+		Info(_log, "Stopped");
+	}
+}
+
 bool MFGrabber::init()
 {
 	if(!_initialized && SUCCEEDED(_hr))
@@ -65,7 +105,6 @@ bool MFGrabber::init()
 		// enumerate the video capture devices on the user's system
 		enumVideoCaptureDevices();
 
-		//
 		if(!autoDiscovery && !_deviceProperties.contains(_currentDeviceName))
 		{
 			Debug(_log, "Device '%s' is not available. Changing to auto.", QSTRING_CSTR(_currentDeviceName));
@@ -405,12 +444,6 @@ void MFGrabber::uninit_device()
 
 void MFGrabber::enumVideoCaptureDevices()
 {
-	if(FAILED(_hr))
-	{
-		Error(_log, "enumVideoCaptureDevices(): Media Foundation not initialized");
-		return;
-	}
-
 	_deviceProperties.clear();
 
 	IMFAttributes* attr;
@@ -439,7 +472,7 @@ void MFGrabber::enumVideoCaptureDevices()
 							IMFMediaSource *pSource = nullptr;
 							if(SUCCEEDED(devices[i]->ActivateObject(IID_PPV_ARGS(&pSource))))
 							{
-								Debug(_log, "Found capture device: %s", QSTRING_CSTR(dev));
+								DebugIf(verbose, _log, "Found capture device: %s", QSTRING_CSTR(dev));
 
 								IMFMediaType *pType = nullptr;
 								IMFSourceReader* reader;
@@ -585,46 +618,6 @@ void MFGrabber::setSignalDetectionOffset(double horizontalMin, double verticalMi
 		Info(_log, "Signal detection area set to: %f,%f x %f,%f", _x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max );
 }
 
-bool MFGrabber::start()
-{
-	try
-	{
-		if(!_initialized)
-		{
-			_threadManager.start();
-			DebugIf(verbose, _log, "Decoding threads: %d",_threadManager._maxThreads);
-
-			if(init())
-			{
-				start_capturing();
-				Info(_log, "Started");
-				return true;
-			}
-		}
-	}
-	catch(std::exception& e)
-	{
-		Error(_log, "Start failed (%s)", e.what());
-	}
-
-	return false;
-}
-
-void MFGrabber::stop()
-{
-	if(_initialized)
-	{
-		_initialized = false;
-		_threadManager.stop();
-		uninit_device();
-		// restore pixelformat to configs value if it is not auto or device name has not changed
-		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
-			_pixelFormat = _pixelFormatConfig;
-		_deviceProperties.clear();
-		Info(_log, "Stopped");
-	}
-}
-
 void MFGrabber::receive_image(const void *frameImageBuffer, int size)
 {
 	process_image(frameImageBuffer, size);
@@ -687,51 +680,6 @@ void MFGrabber::checkSignalDetectionEnabled(Image<ColorRgb> image)
 	}
 	else
 		emit newFrame(image);
-}
-
-QStringList MFGrabber::getDevices() const
-{
-	QStringList result = QStringList();
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		result << it.key();
-
-	return result;
-}
-
-QStringList MFGrabber::getAvailableEncodingFormats(const QString& devicePath, const int& /*device input not used on windows*/) const
-{
-	QStringList result = QStringList();
-
-	for(int i = 0; i < _deviceProperties[devicePath].count(); ++i )
-		if(!result.contains(pixelFormatToString(_deviceProperties[devicePath][i].pf), Qt::CaseInsensitive))
-			result << pixelFormatToString(_deviceProperties[devicePath][i].pf).toLower();
-
-	return result;
-}
-
-QMultiMap<int, int> MFGrabber::getAvailableDeviceResolutions(const QString& devicePath, const int& /*device input not used on windows*/, const PixelFormat& encFormat) const
-{
-	QMultiMap<int, int> result = QMultiMap<int, int>();
-
-	for(int i = 0; i < _deviceProperties[devicePath].count(); ++i )
-		if(!result.contains(_deviceProperties[devicePath][i].width, _deviceProperties[devicePath][i].height) && _deviceProperties[devicePath][i].pf == encFormat)
-			result.insert(_deviceProperties[devicePath][i].width, _deviceProperties[devicePath][i].height);
-
-	return result;
-}
-
-QIntList MFGrabber::getAvailableDeviceFramerates(const QString& devicePath, const int& /*device input not used on windows*/, const PixelFormat& encFormat, const unsigned width, const unsigned height) const
-{
-	QIntList result = QIntList();
-
-	for(int i = 0; i < _deviceProperties[devicePath].count(); ++i )
-	{
-		int fps = _deviceProperties[devicePath][i].numerator / _deviceProperties[devicePath][i].denominator;
-		if(!result.contains(fps) && _deviceProperties[devicePath][i].pf == encFormat && _deviceProperties[devicePath][i].width == width && _deviceProperties[devicePath][i].height == height)
-			result << fps;
-	}
-
-	return result;
 }
 
 void MFGrabber::setSignalDetectionEnable(bool enable)
@@ -838,17 +786,89 @@ bool MFGrabber::setBrightnessContrastSaturationHue(int brightness, int contrast,
 
 void MFGrabber::reloadGrabber()
 {
-	if(_initialized)
+	Debug(_log,"Reloading Media Foundation Grabber");
+	// stop grabber
+	uninit();
+	// restore pixelformat to configs value if it is not auto or device name has not changed
+	if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
+		_pixelFormat = _pixelFormatConfig;
+	// set _newDeviceName
+	_newDeviceName = _currentDeviceName;
+	// start grabber
+	start();
+}
+
+QJsonArray MFGrabber::discover(const QJsonObject& params)
+{
+	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	enumVideoCaptureDevices();
+
+	QJsonArray inputsDiscovered;
+	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
 	{
-		Debug(_log,"Reloading Media Foundation Grabber");
-		// stop grabber
-		uninit();
-		// restore pixelformat to configs value if it is not auto or device name has not changed
-		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
-			_pixelFormat = _pixelFormatConfig;
-		// set _newDeviceName
-		_newDeviceName = _currentDeviceName;
-		// start grabber
-		start();
+		QJsonObject device, in;
+		QJsonArray video_inputs, formats;
+
+		device["device"] = it.key();
+		device["device_name"] = it.key();
+		device["type"] = "v4l2";
+
+		in["name"] = "";
+		in["inputIdx"] = 0;
+
+		QStringList encodingFormats = QStringList();
+		for(int i = 0; i < _deviceProperties[it.key()].count(); ++i )
+			if(!encodingFormats.contains(pixelFormatToString(_deviceProperties[it.key()][i].pf), Qt::CaseInsensitive))
+				encodingFormats << pixelFormatToString(_deviceProperties[it.key()][i].pf).toLower();
+
+		for (auto encodingFormat : encodingFormats)
+		{
+			QJsonObject format;
+			QJsonArray resolutionArray;
+
+			format["format"] = encodingFormat;
+
+			QMultiMap<int, int> deviceResolutions = QMultiMap<int, int>();
+			for(int i = 0; i < _deviceProperties[it.key()].count(); ++i )
+				if(!deviceResolutions.contains(_deviceProperties[it.key()][i].width, _deviceProperties[it.key()][i].height) && _deviceProperties[it.key()][i].pf == parsePixelFormat(encodingFormat))
+					deviceResolutions.insert(_deviceProperties[it.key()][i].width, _deviceProperties[it.key()][i].height);
+
+			for (auto width_height = deviceResolutions.begin(); width_height != deviceResolutions.end(); width_height++)
+			{
+				QJsonObject resolution;
+				QJsonArray fps;
+
+				resolution["width"] = width_height.key();
+				resolution["height"] = width_height.value();
+
+				QIntList framerates = QIntList();
+				for(int i = 0; i < _deviceProperties[it.key()].count(); ++i )
+				{
+					int fps = _deviceProperties[it.key()][i].numerator / _deviceProperties[it.key()][i].denominator;
+					if(!framerates.contains(fps) && _deviceProperties[it.key()][i].pf == parsePixelFormat(encodingFormat) && _deviceProperties[it.key()][i].width == width_height.key() && _deviceProperties[it.key()][i].height == width_height.value())
+						framerates << fps;
+				}
+
+				for (auto framerate : framerates)
+					fps.append(framerate);
+
+				resolution["fps"] = fps;
+				resolutionArray.append(resolution);
+			}
+
+			format["resolutions"] = resolutionArray;
+			formats.append(format);
+		}
+		in["formats"] = formats;
+		video_inputs.append(in);
+
+		device["video_inputs"] = video_inputs;
+		inputsDiscovered.append(device);
 	}
+
+	_deviceProperties.clear();
+	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	return inputsDiscovered;
 }

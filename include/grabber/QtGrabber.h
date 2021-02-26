@@ -15,7 +15,7 @@ class QtGrabber : public Grabber
 {
 public:
 
-	QtGrabber(int cropLeft=0, int cropRight=0, int cropTop=0, int cropBottom=0, int pixelDecimation=1, int display=0);
+	QtGrabber(int cropLeft=0, int cropRight=0, int cropTop=0, int cropBottom=0, int pixelDecimation=8, int display=0);
 
 	~QtGrabber() override;
 

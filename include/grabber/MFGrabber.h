@@ -65,14 +65,10 @@ public:
 	void setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold) override;
 	void setSignalDetectionOffset( double verticalMin, double horizontalMin, double verticalMax, double horizontalMax) override;
 	void setSignalDetectionEnable(bool enable) override;
-	void setPixelDecimation(int pixelDecimation) override;
 	void setCecDetectionEnable(bool enable) override;
 	bool setDevice(QString device) override;
 	bool setWidthHeight(int width, int height) override;
-	bool setFramerate(int fps) override;
-	void setFpsSoftwareDecimation(int decimation);
 	bool setEncoding(QString enc);
-	void setFlipMode(QString flipMode);
 	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
 	void reloadGrabber();
 
@@ -84,7 +80,7 @@ public:
 	QJsonArray discover(const QJsonObject& params);
 
 public slots:
-	bool open();
+	bool prepare();
 	bool start();
 	void stop();
 	void newThreadFrame(unsigned int _workerIndex, const Image<ColorRgb>& image,unsigned int sourceCount);
@@ -107,10 +103,8 @@ private:
 	HRESULT										_hr;
 	SourceReaderCB*								_sourceReaderCB;
 	PixelFormat									_pixelFormat, _pixelFormatConfig;
-	int											_pixelDecimation,
-												_lineLength, _frameByteSize,
+	int											_lineLength, _frameByteSize,
 												_noSignalCounterThreshold, _noSignalCounter,
-												_fpsSoftwareDecimation,
 												_brightness, _contrast, _saturation, _hue;
 	volatile unsigned int						_currentFrame;
 	ColorRgb									_noSignalThresholdColor;

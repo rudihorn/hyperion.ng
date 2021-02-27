@@ -301,13 +301,15 @@ void X11Grabber::setVideoMode(VideoMode mode)
 	updateScreenDimensions(true);
 }
 
-void X11Grabber::setPixelDecimation(int pixelDecimation)
+bool X11Grabber::setPixelDecimation(unsigned pixelDecimation)
 {
-	if(_pixelDecimation != pixelDecimation)
+	if(Grabber::setPixelDecimation(pixelDecimation))
 	{
-		_pixelDecimation = pixelDecimation;
 		updateScreenDimensions(true);
+		return true;
 	}
+
+	return false;
 }
 
 void X11Grabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom)

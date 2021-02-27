@@ -50,7 +50,7 @@ public:
 	///
 	/// @brief Apply new pixelDecimation
 	///
-	void setPixelDecimation(int pixelDecimation) override;
+	bool setPixelDecimation(unsigned pixelDecimation) override;
 
 	///
 	/// Set the crop values

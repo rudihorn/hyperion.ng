@@ -62,7 +62,7 @@ public:
 		QMap<int, InputProperties> inputs = QMap<int, InputProperties>();
 	};
 
-	V4L2Grabber(const QString & device, const unsigned width, const unsigned height, const unsigned fps, const unsigned input, VideoStandard videoStandard, PixelFormat pixelFormat, int pixelDecimation);
+	V4L2Grabber();
 	~V4L2Grabber() override;
 
 	QRectF getSignalDetectionOffset() const
@@ -74,12 +74,6 @@ public:
 	bool getCecDetectionEnabled() const { return _cecDetectionEnabled; }
 
 	int grabFrame(Image<ColorRgb> &);
-
-	///
-	/// @brief  set new PixelDecimation value to ImageResampler
-	/// @param  pixelDecimation  The new pixelDecimation value
-	///
-	void setPixelDecimation(int pixelDecimation) override;
 
 	///
 	/// @brief  overwrite Grabber.h implementation
@@ -108,66 +102,17 @@ public:
 	///
 	void setCecDetectionEnable(bool enable) override;
 
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	void setDeviceVideoStandard(QString device, VideoStandard videoStandard) override;
+	bool setDevice(const QString& device);
 
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	bool setInput(int input) override;
+	bool setEncoding(QString enc);
 
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	bool setWidthHeight(int width, int height) override;
+	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
 
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	bool setFramerate(int fps) override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QStringList getDevices() const override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QString getDeviceName(const QString& devicePath) const override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QMultiMap<QString, int> getDeviceInputs(const QString& devicePath) const override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QList<VideoStandard> getAvailableDeviceStandards(const QString& devicePath, const int& deviceInput) const override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QStringList getAvailableEncodingFormats(const QString& devicePath, const int& deviceInput) const override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QMultiMap<int, int> getAvailableDeviceResolutions(const QString& devicePath, const int& deviceInput, const PixelFormat& encFormat) const override;
-
-	///
-	/// @brief overwrite Grabber.h implementation
-	///
-	QIntList getAvailableDeviceFramerates(const QString& devicePath, const int& deviceInput, const PixelFormat& encFormat, const unsigned width, const unsigned height) const override;
-
+	void reloadGrabber();
 
 public slots:
-
+	bool prepare();
 	bool start();
-
 	void stop();
 
 	void handleCecEvent(CECEvent event);
@@ -181,35 +126,20 @@ private slots:
 
 private:
 	void getV4Ldevices();
-
 	bool init();
-
 	void uninit();
-
 	bool open_device();
-
 	void close_device();
-
 	void init_read(unsigned int buffer_size);
-
 	void init_mmap();
-
 	void init_userp(unsigned int buffer_size);
-
 	void init_device(VideoStandard videoStandard);
-
 	void uninit_device();
-
 	void start_capturing();
-
 	void stop_capturing();
-
 	bool process_image(const void *p, int size);
-
 	void process_image(const uint8_t *p, int size);
-
 	int xioctl(int request, void *arg);
-
 	int xioctl(int fileDescriptor, int request, void *arg);
 
 	void throw_exception(const QString & error)
@@ -264,11 +194,10 @@ private:
 #endif
 
 private:
-	QString _deviceName;
+	QString _deviceName, _newDeviceName;
 	std::map<QString, QString> _v4lDevices;
 	QMap<QString, V4L2Grabber::DeviceProperties> _deviceProperties;
 
-	VideoStandard       _videoStandard;
 	io_method           _ioMethod;
 	int                 _fileDescriptor;
 	std::vector<buffer> _buffers;

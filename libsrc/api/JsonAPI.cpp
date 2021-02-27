@@ -1450,12 +1450,16 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 
 			if (sourceType == "video" )
 			{
-				#ifdef ENABLE_MF
+#ifdef ENABLE_MF
 				MFGrabber* grabber = new MFGrabber();
 				QJsonObject params;
 				videoInputs = grabber->discover(params);
 				delete grabber;
-				#endif
+#endif
+
+#ifdef ENABLE_V4L2
+				qDebug() << "Comming soon ...";
+#endif
 			}
 			else
 #endif

@@ -36,21 +36,19 @@ static PixelFormat GetPixelFormat(const unsigned int format)
 	if (format == V4L2_PIX_FMT_RGB24) return PixelFormat::BGR24;
 	if (format == V4L2_PIX_FMT_YUYV) return PixelFormat::YUYV;
 	if (format == V4L2_PIX_FMT_UYVY) return PixelFormat::UYVY;
-	if (format == V4L2_PIX_FMT_MJPEG) return  PixelFormat::MJPEG;
 	if (format == V4L2_PIX_FMT_NV12) return  PixelFormat::NV12;
 	if (format == V4L2_PIX_FMT_YUV420) return  PixelFormat::I420;
+#ifdef HAVE_JPEG_DECODER
+	if (format == V4L2_PIX_FMT_MJPEG) return  PixelFormat::MJPEG;
+#endif
 	return PixelFormat::NO_CHANGE;
 };
 
-V4L2Grabber::V4L2Grabber(const QString & device, unsigned width, unsigned height, unsigned fps, unsigned input, VideoStandard videoStandard, PixelFormat pixelFormat, int pixelDecimation)
-	: Grabber("V4L2:"+device)
-	, _deviceName()
-	, _videoStandard(videoStandard)
+V4L2Grabber::V4L2Grabber()
+	: Grabber("V4L2")
 	, _ioMethod(IO_METHOD_MMAP)
 	, _fileDescriptor(-1)
-	, _buffers()
-	, _pixelFormat(pixelFormat)
-	, _pixelDecimation(pixelDecimation)
+	, _pixelFormat(PixelFormat::NO_CHANGE)
 	, _lineLength(-1)
 	, _frameByteSize(-1)
 	, _noSignalCounterThreshold(40)
@@ -68,15 +66,6 @@ V4L2Grabber::V4L2Grabber(const QString & device, unsigned width, unsigned height
 	, _initialized(false)
 	, _deviceAutoDiscoverEnabled(false)
 {
-	setPixelDecimation(pixelDecimation);
-	getV4Ldevices();
-
-	// init
-	setInput(input);
-	setWidthHeight(width, height);
-	setFramerate(fps);
-	setDeviceVideoStandard(device, videoStandard);
-	Debug(_log,"Init pixel format: %i", static_cast<int>(_pixelFormat));
 }
 
 V4L2Grabber::~V4L2Grabber()
@@ -92,6 +81,13 @@ void V4L2Grabber::uninit()
 		Debug(_log,"uninit grabber: %s", QSTRING_CSTR(_deviceName));
 		stop();
 	}
+}
+
+bool V4L2Grabber::prepare()
+{
+	getV4Ldevices();
+
+	return false;
 }
 
 bool V4L2Grabber::init()
@@ -699,16 +695,28 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 	// set the requested pixel format
 	switch (_pixelFormat)
 	{
-		case PixelFormat::UYVY:
-			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
+		case PixelFormat::RGB32:
+			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
+		break;
+
+		case PixelFormat::BGR24:
+			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
 		break;
 
 		case PixelFormat::YUYV:
 			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
 		break;
 
-		case PixelFormat::RGB32:
-			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
+		case PixelFormat::UYVY:
+			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
+		break;
+
+		case PixelFormat::NV12:
+			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_NV12;
+		break;
+
+		case PixelFormat::I420:
+			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
 		break;
 
 #ifdef HAVE_JPEG_DECODER
@@ -727,7 +735,7 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 	}
 
 	// set custom resolution for width and height if they are not zero
-	if(_width && _height)
+	if(_width != 0 && _height != 0)
 	{
 		fmt.fmt.pix.width = _width;
 		fmt.fmt.pix.height = _height;
@@ -772,13 +780,22 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 	// check pixel format and frame size
 	switch (fmt.fmt.pix.pixelformat)
 	{
-		case V4L2_PIX_FMT_UYVY:
+		case V4L2_PIX_FMT_RGB32:
 		{
-			_pixelFormat = PixelFormat::UYVY;
-			_frameByteSize = _width * _height * 2;
-			Debug(_log, "Pixel format=UYVY");
+			_pixelFormat = PixelFormat::RGB32;
+			_frameByteSize = _width * _height * 4;
+			Debug(_log, "Pixel format=RGB32");
 		}
 		break;
+
+		case V4L2_PIX_FMT_RGB24:
+		{
+			_pixelFormat = PixelFormat::BGR24;
+			_frameByteSize = _width * _height * 3;
+			Debug(_log, "Pixel format=BGR24");
+		}
+		break;
+
 
 		case V4L2_PIX_FMT_YUYV:
 		{
@@ -788,11 +805,27 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 		}
 		break;
 
-		case V4L2_PIX_FMT_RGB32:
+		case V4L2_PIX_FMT_UYVY:
 		{
-			_pixelFormat = PixelFormat::RGB32;
-			_frameByteSize = _width * _height * 4;
-			Debug(_log, "Pixel format=RGB32");
+			_pixelFormat = PixelFormat::UYVY;
+			_frameByteSize = _width * _height * 2;
+			Debug(_log, "Pixel format=UYVY");
+		}
+		break;
+
+		case V4L2_PIX_FMT_NV12:
+		{
+			_pixelFormat = PixelFormat::NV12;
+			_frameByteSize = (_width * _height * 6) / 4;
+			Debug(_log, "Pixel format=NV12");
+		}
+		break;
+
+		case V4L2_PIX_FMT_YUV420:
+		{
+			_pixelFormat = PixelFormat::I420;
+			_frameByteSize = (_width * _height * 6) / 4;
+			Debug(_log, "Pixel format=I420");
 		}
 		break;
 
@@ -807,9 +840,9 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 
 		default:
 #ifdef HAVE_JPEG_DECODER
-			throw_exception("Only pixel formats UYVY, YUYV, RGB32 and MJPEG are supported");
+			throw_exception("Only pixel formats RGB32, BGR24, YUYV, UYVY, NV12, I420 and MJPEG are supported");
 #else
-			throw_exception("Only pixel formats UYVY, YUYV, and RGB32 are supported");
+			throw_exception("Only pixel formats RGB32, BGR24, YUYV, UYVY, NV12 and I420 are supported");
 #endif
 		return;
 	}
@@ -1368,155 +1401,44 @@ void V4L2Grabber::setCecDetectionEnable(bool enable)
 	}
 }
 
-void V4L2Grabber::setPixelDecimation(int pixelDecimation)
+bool V4L2Grabber::setDevice(const QString& device)
 {
-	if (_pixelDecimation != pixelDecimation)
+	if (_deviceName != device)
 	{
-		_pixelDecimation = pixelDecimation;
-		_imageResampler.setHorizontalPixelDecimation(pixelDecimation);
-		_imageResampler.setVerticalPixelDecimation(pixelDecimation);
-	}
-}
+		(_initialized)
+		? _newDeviceName = device
+		: _deviceName = _newDeviceName = device;
 
-void V4L2Grabber::setDeviceVideoStandard(QString device, VideoStandard videoStandard)
-{
-	if (_deviceName != device || _videoStandard != videoStandard)
-	{
-		// extract input of device
-		QChar input = device.at(device.size() - 1);
-		_input = input.isNumber() ? input.digitValue() : -1;
-
-		bool started = _initialized;
-		uninit();
-		_deviceName = device;
-		_videoStandard = videoStandard;
-
-		if(started) start();
-	}
-}
-
-bool V4L2Grabber::setInput(int input)
-{
-	if(Grabber::setInput(input))
-	{
-		bool started = _initialized;
-		uninit();
-		if(started) start();
 		return true;
 	}
+
 	return false;
 }
 
-bool V4L2Grabber::setWidthHeight(int width, int height)
+bool V4L2Grabber::setEncoding(QString enc)
 {
-	if(Grabber::setWidthHeight(width,height))
+	if(_pixelFormat != parsePixelFormat(enc))
 	{
-		bool started = _initialized;
-		uninit();
-		if(started) start();
+		Debug(_log,"Set hardware encoding to: %s", QSTRING_CSTR(enc.toUpper()));
+		_pixelFormat = parsePixelFormat(enc);
+
 		return true;
 	}
+
 	return false;
 }
 
-bool V4L2Grabber::setFramerate(int fps)
+bool V4L2Grabber::setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue)
 {
-	if(Grabber::setFramerate(fps))
-	{
-		bool started = _initialized;
-		uninit();
-		if(started) start();
-		return true;
-	}
+	// TODO
 	return false;
 }
 
-QStringList V4L2Grabber::getDevices() const
+void V4L2Grabber::reloadGrabber()
 {
-	QStringList result = QStringList();
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		result << it.key();
-
-	return result;
-}
-
-QString V4L2Grabber::getDeviceName(const QString& devicePath) const
-{
-	return _deviceProperties.value(devicePath).name;
-}
-
-QMultiMap<QString, int> V4L2Grabber::getDeviceInputs(const QString& devicePath) const
-{
-	QMultiMap<QString, int> result = QMultiMap<QString, int>();
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		if (it.key() == devicePath)
-			for (auto input = it.value().inputs.begin(); input != it.value().inputs.end(); input++)
-				if (!result.contains(input.value().inputName, input.key()))
-					result.insert(input.value().inputName, input.key());
-
-	return result;
-}
-
-QList<VideoStandard> V4L2Grabber::getAvailableDeviceStandards(const QString& devicePath, const int& deviceInput) const
-{
-	QList<VideoStandard> result =QList<VideoStandard>();
-
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		if (it.key() == devicePath)
-			for (auto input = it.value().inputs.begin(); input != it.value().inputs.end(); input++)
-				if (input.key() == deviceInput)
-					for (auto standard = input.value().standards.begin(); standard != input.value().standards.end(); standard++)
-						if(!result.contains(*standard))
-							result << *standard;
-
-	return result;
-}
-
-QStringList V4L2Grabber::getAvailableEncodingFormats(const QString& devicePath, const int& deviceInput) const
-{
-	QStringList result = QStringList();
-
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		if (it.key() == devicePath)
-			for (auto input = it.value().inputs.begin(); input != it.value().inputs.end(); input++)
-				if (input.key() == deviceInput)
-					for (auto enc = input.value().encodingFormats.begin(); enc != input.value().encodingFormats.end(); enc++)
-						if (!result.contains(pixelFormatToString(enc.key()).toLower(), Qt::CaseInsensitive))
-							result << pixelFormatToString(enc.key()).toLower();
-
-	return result;
-}
-
-QMultiMap<int, int> V4L2Grabber::getAvailableDeviceResolutions(const QString& devicePath, const int& deviceInput, const PixelFormat& encFormat) const
-{
-	QMultiMap<int, int> result = QMultiMap<int, int>();
-
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		if (it.key() == devicePath)
-			for (auto input = it.value().inputs.begin(); input != it.value().inputs.end(); input++)
-				if (input.key() == deviceInput)
-					for (auto enc = input.value().encodingFormats.begin(); enc != input.value().encodingFormats.end(); enc++)
-						if (!result.contains(enc.value().width, enc.value().height))
-							result.insert(enc.value().width, enc.value().height);
-
-	return result;
-}
-
-QIntList V4L2Grabber::getAvailableDeviceFramerates(const QString& devicePath, const int& deviceInput, const PixelFormat& encFormat, const unsigned width, const unsigned height) const
-{
-	QIntList result = QIntList();
-
-	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
-		if (it.key() == devicePath)
-			for (auto input = it.value().inputs.begin(); input != it.value().inputs.end(); input++)
-				if (input.key() == deviceInput)
-					for (auto enc = input.value().encodingFormats.begin(); enc != input.value().encodingFormats.end(); enc++)
-						if(enc.key() == encFormat && enc.value().width == width && enc.value().height == height)
-							for (auto fps = enc.value().framerates.begin(); fps != enc.value().framerates.end(); fps++)
-								if(!result.contains(*fps))
-									result << *fps;
-
-	return result;
+	bool started = _initialized;
+	uninit();
+	if(started) start();
 }
 
 void V4L2Grabber::handleCecEvent(CECEvent event)

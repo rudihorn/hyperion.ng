@@ -223,9 +223,9 @@ void QtGrabber::setVideoMode(VideoMode mode)
 	updateScreenDimensions(true);
 }
 
-void QtGrabber::setPixelDecimation(int pixelDecimation)
+bool QtGrabber::setPixelDecimation(unsigned pixelDecimation)
 {
-	_pixelDecimation = pixelDecimation;
+	return Grabber::setPixelDecimation(pixelDecimation);
 }
 
 void QtGrabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom)

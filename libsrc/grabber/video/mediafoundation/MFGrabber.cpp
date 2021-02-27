@@ -15,7 +15,6 @@ MFGrabber::MFGrabber()
 	, _frameByteSize(-1)
 	, _noSignalCounterThreshold(40)
 	, _noSignalCounter(0)
-	, _fpsSoftwareDecimation(0)
 	, _brightness(0)
 	, _contrast(0)
 	, _saturation(0)
@@ -48,7 +47,7 @@ MFGrabber::~MFGrabber()
 		CoUninitialize();
 }
 
-bool MFGrabber::open()
+bool MFGrabber::prepare()
 {
 	if(SUCCEEDED(_hr))
 	{
@@ -710,18 +709,6 @@ bool MFGrabber::setDevice(QString device)
 	return false;
 }
 
-void MFGrabber::setPixelDecimation(int pixelDecimation)
-{
-	if(_pixelDecimation != pixelDecimation)
-		_pixelDecimation = pixelDecimation;
-}
-
-void MFGrabber::setFlipMode(QString flipMode)
-{
-	if(_flipMode != parseFlipMode(flipMode))
-		Grabber::setFlipMode(parseFlipMode(flipMode));
-}
-
 bool MFGrabber::setWidthHeight(int width, int height)
 {
 	if(Grabber::setWidthHeight(width, height))
@@ -737,23 +724,6 @@ bool MFGrabber::setWidthHeight(int width, int height)
 	}
 
 	return false;
-}
-
-bool MFGrabber::setFramerate(int fps)
-{
-	if(Grabber::setFramerate(fps))
-	{
-		Debug(_log,"Set fps to: %i", fps);
-		return true;
-	}
-	return false;
-}
-
-void MFGrabber::setFpsSoftwareDecimation(int decimation)
-{
-	_fpsSoftwareDecimation = decimation;
-	if(decimation > 0)
-		Debug(_log,"Skip %i frame per second", decimation);
 }
 
 bool MFGrabber::setEncoding(QString enc)

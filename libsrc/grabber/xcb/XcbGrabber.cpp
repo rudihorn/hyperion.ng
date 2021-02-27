@@ -394,13 +394,15 @@ void XcbGrabber::setVideoMode(VideoMode mode)
 	updateScreenDimensions(true);
 }
 
-void XcbGrabber::setPixelDecimation(int pixelDecimation)
+bool XcbGrabber::setPixelDecimation(unsigned pixelDecimation)
 {
-	if(_pixelDecimation != pixelDecimation)
+	if(Grabber::setPixelDecimation(pixelDecimation))
 	{
-		_pixelDecimation = pixelDecimation;
 		updateScreenDimensions(true);
+		return true;
 	}
+
+	return false;
 }
 
 void XcbGrabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom)

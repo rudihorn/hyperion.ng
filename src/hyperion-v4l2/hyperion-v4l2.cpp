@@ -109,15 +109,7 @@ int main(int argc, char** argv)
 		}
 
 		// initialize the grabber
-		V4L2Grabber grabber(
-					argDevice.value(parser),
-					argWidth.getInt(parser),
-					argHeight.getInt(parser),
-					1000 / argFps.getInt(parser),
-					argInput.getInt(parser),
-					argVideoStandard.switchValue(parser),
-					argPixelFormat.switchValue(parser),
-					std::max(1, argSizeDecimation.getInt(parser)));
+		V4L2Grabber grabber();
 
 		// set signal detection
 		grabber.setSignalDetectionEnable(! parser.isSet(argSignalDetection));

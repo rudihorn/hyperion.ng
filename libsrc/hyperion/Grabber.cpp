@@ -5,10 +5,13 @@ Grabber::Grabber(const QString& grabberName, int width, int height, int cropLeft
 	, _imageResampler()
 	, _useImageResampler(true)
 	, _videoMode(VideoMode::VIDEO_2D)
+	, _videoStandard(VideoStandard::NO_CHANGE)
+	, _pixelDecimation(8)
 	, _flipMode(FlipMode::NO_CHANGE)
 	, _width(width)
 	, _height(height)
 	, _fps(15)
+	, _fpsSoftwareDecimation(0)
 	, _input(-1)
 	, _cropLeft(0)
 	, _cropRight(0)
@@ -17,7 +20,6 @@ Grabber::Grabber(const QString& grabberName, int width, int height, int cropLeft
 	, _enabled(true)
 	, _log(Logger::getInstance(_grabberName.toUpper()))
 {
-	Grabber::setVideoMode(VideoMode::VIDEO_2D);
 	Grabber::setCropping(cropLeft, cropRight, cropTop, cropBottom);
 }
 
@@ -35,6 +37,27 @@ void Grabber::setVideoMode(VideoMode mode)
 	{
 		_imageResampler.setVideoMode(_videoMode);
 	}
+}
+
+void Grabber::setVideoStandard(VideoStandard videoStandard)
+{
+	if (_videoStandard != videoStandard)
+		_videoStandard = videoStandard;
+}
+
+bool Grabber::setPixelDecimation(unsigned pixelDecimation)
+{
+	if (_pixelDecimation != pixelDecimation)
+	{
+		Debug(_log,"Set image size decimation to %d", pixelDecimation);
+		_pixelDecimation = pixelDecimation;
+		_imageResampler.setHorizontalPixelDecimation(pixelDecimation);
+		_imageResampler.setVerticalPixelDecimation(pixelDecimation);
+
+		return true;
+	}
+
+	return false;
 }
 
 void Grabber::setFlipMode(FlipMode mode)
@@ -112,9 +135,25 @@ bool Grabber::setFramerate(int fps)
 {
 	if((fps > 0) && (_fps != fps))
 	{
+		Debug(_log,"Set new fps to: %i", fps);
 		_fps = fps;
 		return true;
 	}
 
 	return false;
+}
+
+bool Grabber::setFpsSoftwareDecimation(unsigned decimation)
+{
+	if((_fpsSoftwareDecimation != decimation))
+	{
+		_fpsSoftwareDecimation = decimation;
+		if(decimation > 0)
+			Debug(_log,"Skip %i frame per second", decimation);
+
+		return true;
+	}
+
+	return false;
+
 }

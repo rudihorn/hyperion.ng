@@ -29,7 +29,7 @@ public:
 	int updateScreenDimensions(bool force = false);
 	void setVideoMode(VideoMode mode) override;
 	bool setWidthHeight(int width, int height) override { return true; }
-	void setPixelDecimation(int pixelDecimation) override;
+	bool setPixelDecimation(unsigned pixelDecimation) override;
 	void setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom) override;
 
 private:

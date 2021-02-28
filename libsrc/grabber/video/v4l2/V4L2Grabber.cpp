@@ -27,8 +27,11 @@
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 #ifndef V4L2_CAP_META_CAPTURE
-#define V4L2_CAP_META_CAPTURE 0x00800000 // Specified in kernel header v4.16. Required for backward compatibility.
+	#define V4L2_CAP_META_CAPTURE 0x00800000 // Specified in kernel header v4.16. Required for backward compatibility.
 #endif
+
+// Constants
+namespace { const bool verbose = false; }
 
 static PixelFormat GetPixelFormat(const unsigned int format)
 {
@@ -53,9 +56,9 @@ V4L2Grabber::V4L2Grabber()
 	, _frameByteSize(-1)
 	, _noSignalCounterThreshold(40)
 	, _noSignalThresholdColor(ColorRgb{0,0,0})
-	, _signalDetectionEnabled(true)
 	, _cecDetectionEnabled(true)
 	, _cecStandbyActivated(false)
+	, _signalDetectionEnabled(true)
 	, _noSignalDetected(false)
 	, _noSignalCounter(0)
 	, _x_frac_min(0.25)
@@ -81,13 +84,6 @@ void V4L2Grabber::uninit()
 		Debug(_log,"uninit grabber: %s", QSTRING_CSTR(_deviceName));
 		stop();
 	}
-}
-
-bool V4L2Grabber::prepare()
-{
-	getV4Ldevices();
-
-	return false;
 }
 
 bool V4L2Grabber::init()
@@ -315,6 +311,7 @@ void V4L2Grabber::getV4Ldevices()
 				properties.name = devName;
 				devNameFile.close();
 			}
+
 			_v4lDevices.emplace("/dev/"+it.fileName(), devName);
 			_deviceProperties.insert("/dev/"+it.fileName(), properties);
 		}
@@ -1436,9 +1433,8 @@ bool V4L2Grabber::setBrightnessContrastSaturationHue(int brightness, int contras
 
 void V4L2Grabber::reloadGrabber()
 {
-	bool started = _initialized;
 	uninit();
-	if(started) start();
+	start();
 }
 
 #if defined(ENABLE_CEC)
@@ -1460,3 +1456,116 @@ void V4L2Grabber::handleCecEvent(CECEvent event)
 }
 
 #endif
+
+QJsonArray V4L2Grabber::discover(const QJsonObject& params)
+{
+	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	getV4Ldevices();
+
+	QJsonArray inputsDiscovered;
+	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
+	{
+		QJsonObject device, in;
+		QJsonArray video_inputs, formats;
+
+		device["device"] = it.key();
+		device["device_name"] = _deviceProperties.value(it.key()).name;
+		device["type"] = "v4l2";
+
+		QMultiMap<QString, int> inputs = QMultiMap<QString, int>();
+		for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
+			if (i.key() == it.key())
+				for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
+					if (!inputs.contains(y.value().inputName, y.key()))
+						inputs.insert(y.value().inputName, y.key());
+
+		for (auto input = inputs.begin(); input != inputs.end(); input++)
+		{
+			in["name"] = input.key();
+			in["inputIdx"] = input.value();
+
+			QJsonArray standards;
+			QList<VideoStandard> videoStandards = QList<VideoStandard>();
+			for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
+				if (i.key() == it.key())
+					for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
+						if (y.key() == input.value())
+							for (auto std = y.value().standards.begin(); std != y.value().standards.end(); std++)
+								if(!videoStandards.contains(*std))
+									videoStandards << *std;
+
+			for (auto standard : videoStandards)
+				standards.append(VideoStandard2String(standard));
+
+			if (!standards.isEmpty())
+				in["standards"] = standards;
+
+			QList<PixelFormat> encodingFormats = QList<PixelFormat>();
+			for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
+				if (i.key() == it.key())
+					for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
+						if (y.key() == input.value())
+							for (auto enc = y.value().encodingFormats.begin(); enc != y.value().encodingFormats.end(); enc++)
+								if (!encodingFormats.contains(enc.key()))
+									encodingFormats << enc.key();
+
+			for (auto encodingFormat : encodingFormats)
+			{
+				QJsonObject format;
+				QJsonArray resolutionArray;
+
+				format["format"] = pixelFormatToString(encodingFormat);
+
+				QMultiMap<unsigned int, unsigned int> deviceResolutions = QMultiMap<unsigned int, unsigned int>();
+				for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
+					if (i.key() == it.key())
+						for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
+							if (y.key() == input.value())
+								for (auto enc = y.value().encodingFormats.begin(); enc != y.value().encodingFormats.end(); enc++)
+									if (enc.key() == encodingFormat && !deviceResolutions.contains(enc.value().width, enc.value().height))
+										deviceResolutions.insert(enc.value().width, enc.value().height);
+
+				for (auto width_height = deviceResolutions.begin(); width_height != deviceResolutions.end(); width_height++)
+				{
+					QJsonObject resolution;
+					QJsonArray fps;
+
+					resolution["width"] = int(width_height.key());
+					resolution["height"] = int(width_height.value());
+
+					QIntList framerates = QIntList();
+					for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
+						if (i.key() == it.key())
+							for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
+								if (y.key() == input.value())
+									for (auto enc = y.value().encodingFormats.begin(); enc != y.value().encodingFormats.end(); enc++)
+											if(enc.key() == encodingFormat && enc.value().width == width_height.key() && enc.value().height == width_height.value())
+												for (auto fps = enc.value().framerates.begin(); fps != enc.value().framerates.end(); fps++)
+													if(!framerates.contains(*fps))
+														framerates << *fps;
+
+					for (auto framerate : framerates)
+						fps.append(framerate);
+
+					resolution["fps"] = fps;
+					resolutionArray.append(resolution);
+				}
+
+				format["resolutions"] = resolutionArray;
+				formats.append(format);
+			}
+			in["formats"] = formats;
+			video_inputs.append(in);
+
+		}
+
+		device["video_inputs"] = video_inputs;
+		inputsDiscovered.append(device);
+	}
+
+	_deviceProperties.clear();
+	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	return inputsDiscovered;
+}

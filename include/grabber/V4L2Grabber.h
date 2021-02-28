@@ -17,6 +17,8 @@
 #include <utils/VideoStandard.h>
 #include <utils/Components.h>
 
+#include <HyperionConfig.h> // Required to determine the cmake options
+
 #if defined(ENABLE_CEC)
 	#include <cec/CECEvent.h>
 #endif
@@ -113,8 +115,15 @@ public:
 
 	void reloadGrabber();
 
+	///
+	/// @brief Discover available V4L2 USB devices (for configuration).
+	/// @param[in] params Parameters used to overwrite discovery default behaviour
+	/// @return A JSON structure holding a list of USB devices found
+	///
+	QJsonArray discover(const QJsonObject& params);
+
 public slots:
-	bool prepare();
+	bool prepare() { return true; }
 	bool start();
 	void stop();
 
@@ -215,8 +224,7 @@ private:
 	// signal detection
 	int      _noSignalCounterThreshold;
 	ColorRgb _noSignalThresholdColor;
-	bool     _cecDetectionEnabled, _cecStandbyActivated;
-	bool     _signalDetectionEnabled, _noSignalDetected;
+	bool     _cecDetectionEnabled, _cecStandbyActivated, _signalDetectionEnabled, _noSignalDetected;
 	int      _noSignalCounter;
 	double   _x_frac_min;
 	double   _y_frac_min;

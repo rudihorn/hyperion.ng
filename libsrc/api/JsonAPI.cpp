@@ -16,11 +16,15 @@
 #include <leddevice/LedDevice.h>
 #include <leddevice/LedDeviceFactory.h>
 
+#include <HyperionConfig.h> // Required to determine the cmake options
+
 #include <hyperion/GrabberWrapper.h>
 #include <grabber/QtGrabber.h>
 
-#ifdef _WIN32
+#if defined(ENABLE_MF)
 	#include <grabber/MFGrabber.h>
+#elif defined(ENABLE_V4L2)
+	#include <grabber/V4L2Grabber.h>
 #endif
 
 #include <utils/jsonschema/QJsonFactory.h>
@@ -1450,16 +1454,14 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 
 			if (sourceType == "video" )
 			{
-#ifdef ENABLE_MF
+#if defined(ENABLE_MF)
 				MFGrabber* grabber = new MFGrabber();
+#elif defined(ENABLE_V4L2)
+				V4L2Grabber* grabber = new V4L2Grabber();
+#endif
 				QJsonObject params;
 				videoInputs = grabber->discover(params);
 				delete grabber;
-#endif
-
-#ifdef ENABLE_V4L2
-				qDebug() << "Comming soon ...";
-#endif
 			}
 			else
 #endif

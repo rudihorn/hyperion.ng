@@ -124,7 +124,7 @@ bool MFGrabber::init()
 
 		if(foundDevice.isNull() || foundDevice.isEmpty() || !_deviceProperties.contains(foundDevice))
 		{
-			Error(_log, "Could not find any capture device");
+			Warning(_log, "Could not find any capture device");
 			return false;
 		}
 
@@ -185,7 +185,7 @@ bool MFGrabber::init()
 				_initialized = true;
 		}
 		else
-			Error(_log, "Could not find any capture device settings");
+			Warning(_log, "Could not find any capture device settings");
 	}
 
 	return _initialized;
@@ -413,7 +413,7 @@ HRESULT MFGrabber::init_device(QString deviceName, DeviceProperties props)
 done:
 	if(FAILED(hr))
 	{
-		Error(_log, "%s", QSTRING_CSTR(error));
+		emit readError(QSTRING_CSTR(error));
 		SAFE_RELEASE(_sourceReader);
 	}
 	else

@@ -85,6 +85,7 @@ public slots:
 
 signals:
 	void newFrame(const Image<ColorRgb> & image);
+	void readError(const char* err);
 
 private:
 	bool init();

@@ -119,7 +119,7 @@ public:
 		{
 			_hrStatus = hrStatus;
 			_com_error error(_hrStatus);
-			Error(_grabber->_log, "Source Reader error => %s", error.ErrorMessage());
+			emit _grabber->readError(error.ErrorMessage());
 			goto done;
 		}
 

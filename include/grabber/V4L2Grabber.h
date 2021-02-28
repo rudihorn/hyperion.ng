@@ -16,7 +16,10 @@
 #include <hyperion/Grabber.h>
 #include <utils/VideoStandard.h>
 #include <utils/Components.h>
-#include <cec/CECEvent.h>
+
+#if defined(ENABLE_CEC)
+	#include <cec/CECEvent.h>
+#endif
 
 // general JPEG decoder includes
 #ifdef HAVE_JPEG_DECODER
@@ -115,7 +118,9 @@ public slots:
 	bool start();
 	void stop();
 
+#if defined(ENABLE_CEC)
 	void handleCecEvent(CECEvent event);
+#endif
 
 signals:
 	void newFrame(const Image<ColorRgb> & image);
@@ -210,10 +215,8 @@ private:
 	// signal detection
 	int      _noSignalCounterThreshold;
 	ColorRgb _noSignalThresholdColor;
-	bool     _signalDetectionEnabled;
-	bool     _cecDetectionEnabled;
-	bool     _cecStandbyActivated;
-	bool     _noSignalDetected;
+	bool     _cecDetectionEnabled, _cecStandbyActivated;
+	bool     _signalDetectionEnabled, _noSignalDetected;
 	int      _noSignalCounter;
 	double   _x_frac_min;
 	double   _y_frac_min;

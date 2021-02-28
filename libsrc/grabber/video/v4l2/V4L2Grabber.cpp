@@ -1441,6 +1441,8 @@ void V4L2Grabber::reloadGrabber()
 	if(started) start();
 }
 
+#if defined(ENABLE_CEC)
+
 void V4L2Grabber::handleCecEvent(CECEvent event)
 {
 	switch (event)
@@ -1456,3 +1458,5 @@ void V4L2Grabber::handleCecEvent(CECEvent event)
 		default: break;
 	}
 }
+
+#endif

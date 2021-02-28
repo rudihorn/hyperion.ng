@@ -110,10 +110,14 @@ bool VideoWrapper::setBrightnessContrastSaturationHue(int brightness, int contra
 	return _grabber.setBrightnessContrastSaturationHue(brightness, contrast, saturation, hue);
 }
 
+#if defined(ENABLE_CEC) && !defined(ENABLE_MF)
+
 void VideoWrapper::handleCecEvent(CECEvent event)
 {
 	_grabber.handleCecEvent(event);
 }
+
+#endif
 
 void VideoWrapper::handleSettingsUpdate(settings::type type, const QJsonDocument& config)
 {

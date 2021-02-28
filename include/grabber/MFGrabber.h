@@ -61,11 +61,9 @@ public:
 	void receive_image(const void *frameImageBuffer, int size);
 	QRectF getSignalDetectionOffset() const { return QRectF(_x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max); }
 	bool getSignalDetectionEnabled() const { return _signalDetectionEnabled; }
-	bool getCecDetectionEnabled() const { return _cecDetectionEnabled; }
 	void setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold) override;
 	void setSignalDetectionOffset( double verticalMin, double horizontalMin, double verticalMax, double horizontalMax) override;
 	void setSignalDetectionEnable(bool enable) override;
-	void setCecDetectionEnable(bool enable) override;
 	bool setDevice(QString device) override;
 	bool setWidthHeight(int width, int height) override;
 	bool setEncoding(QString enc);
@@ -109,7 +107,6 @@ private:
 	volatile unsigned int						_currentFrame;
 	ColorRgb									_noSignalThresholdColor;
 	bool										_signalDetectionEnabled,
-												_cecDetectionEnabled,
 												_noSignalDetected,
 												_initialized;
 	double										_x_frac_min,

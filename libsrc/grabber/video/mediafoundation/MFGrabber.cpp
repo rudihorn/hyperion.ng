@@ -22,7 +22,6 @@ MFGrabber::MFGrabber()
 	, _currentFrame(0)
 	, _noSignalThresholdColor(ColorRgb{0,0,0})
 	, _signalDetectionEnabled(true)
-	, _cecDetectionEnabled(true)
 	, _noSignalDetected(false)
 	, _initialized(false)
 	, _x_frac_min(0.25)
@@ -551,10 +550,6 @@ void MFGrabber::process_image(const void *frameImageBuffer, int size)
 	if((processFrameIndex % (_fpsSoftwareDecimation + 1) != 0) && (_fpsSoftwareDecimation > 0))
 		return;
 
-	// CEC detection
-	if(_cecDetectionEnabled)
-		return;
-
 	// We do want a new frame...
 	if (size < _frameByteSize && _pixelFormat != PixelFormat::MJPEG)
 		Error(_log, "Frame too small: %d != %d", size, _frameByteSize);
@@ -687,15 +682,6 @@ void MFGrabber::setSignalDetectionEnable(bool enable)
 	{
 		_signalDetectionEnabled = enable;
 		Info(_log, "Signal detection is now %s", enable ? "enabled" : "disabled");
-	}
-}
-
-void MFGrabber::setCecDetectionEnable(bool enable)
-{
-	if(_cecDetectionEnabled != enable)
-	{
-		_cecDetectionEnabled = enable;
-		Info(_log, QString("CEC detection is now %1").arg(enable ? "enabled" : "disabled").toLocal8Bit());
 	}
 }
 

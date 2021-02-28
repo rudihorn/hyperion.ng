@@ -9,6 +9,10 @@
 	#include <grabber/V4L2Grabber.h>
 #endif
 
+#if defined(ENABLE_CEC)
+	#include <cec/CECEvent.h>
+#endif
+
 class VideoWrapper : public GrabberWrapper
 {
 	Q_OBJECT
@@ -58,7 +62,10 @@ public slots:
 
 	// CEC Standby
 	void setCecDetectionEnable(bool enable);
+
+#if defined(ENABLE_CEC)
 	void handleCecEvent(CECEvent event);
+#endif
 
 	// Brightness, Contrast, Saturation, Hue
 	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);

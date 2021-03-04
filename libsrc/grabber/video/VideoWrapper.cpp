@@ -31,7 +31,6 @@ bool VideoWrapper::getSignalDetectionEnable() const
 
 bool VideoWrapper::start()
 {
-	Debug(_log, "");
 	return (_grabber.prepare() && _grabber.start() && GrabberWrapper::start());
 }
 

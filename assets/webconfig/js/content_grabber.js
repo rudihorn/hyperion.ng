@@ -11,12 +11,12 @@ $(document).ready(function () {
     $('#conf_cont_instCapt').append(createOptPanel('fa-camera', $.i18n("edt_conf_instCapture_heading_title"), 'editor_container_instCapt', 'btn_submit_instCapt'));
     $('#conf_cont_instCapt').append(createHelpTable(window.schema.instCapture.properties, $.i18n("edt_conf_instCapture_heading_title")));
 
-    // Framegrabber
+    // Screen-Grabber
     $('#conf_cont').append(createRow('conf_cont_screen'));
     $('#conf_cont_screen').append(createOptPanel('fa-camera', $.i18n("edt_conf_fg_heading_title"), 'editor_container_screengrabber', 'btn_submit_screengrabber'));
     $('#conf_cont_screen').append(createHelpTable(window.schema.framegrabber.properties, $.i18n("edt_conf_fg_heading_title")));
 
-    // V4L2 - hide if not available
+    // Video-Grabber - hide if not available
     if (VIDEOGRABBER_AVAIL) {
       $('#conf_cont').append(createRow('conf_cont_video'));
       $('#conf_cont_video').append(createOptPanel('fa-camera', $.i18n("edt_conf_v4l2_heading_title"), 'editor_container_videograbber', 'btn_submit_videograbber'));
@@ -36,7 +36,7 @@ $(document).ready(function () {
     instCapture: window.schema.instCapture
   }, true, true);
 
-  // Hide V4L2 elements, if not available
+  // Hide Video-Grabber elements, if not available
   if (!VIDEOGRABBER_AVAIL) {
     $('[data-schemapath*="root.instCapture.v4lEnable' + '"]').hide();
     $('[data-schemapath*="root.instCapture.v4lPriority' + '"]').hide();
@@ -142,43 +142,10 @@ $(document).ready(function () {
     updateJsonEditorRange(editor.getEditor(path), 'cropBottom', 0, height);
   }
 
-  // Framegrabber
+  // Screen-Grabber
   conf_editor_screen = createJsonEditor('editor_container_screengrabber', {
     framegrabber: window.schema.framegrabber
   }, true, true);
-
-  /*
-  conf_editor_screen.on('ready', function () {
-    var availableGrabbers = window.serverInfo.grabbers.available;
-    var screenGrabberOptions = conf_editor_screen.getEditor('root.framegrabber');
-    var orginalGrabberTypes = screenGrabberOptions.schema.properties.type.enum;
-    var orginalGrabberTitles = screenGrabberOptions.schema.properties.type.options.enum_titles;
-
-    var enumVals = [];
-    var enumTitelVals = [];
-    var enumDefaultVal = "";
-
-    for (var i = 0; i < orginalGrabberTypes.length; i++) {
-      var grabberType = orginalGrabberTypes[i];
-      if ($.inArray(grabberType, availableGrabbers) != -1) {
-        enumVals.push(grabberType);
-        enumTitelVals.push(orginalGrabberTitles[i]);
-      }
-    }
-
-    var activeGrabbers = window.serverInfo.grabbers.active.map(v => v.toLowerCase());
-
-    // Select first active platform grabber
-    for (var i = 0; i < enumVals.length; i++) {
-      var grabberType = enumVals[i];
-      if ($.inArray(grabberType, activeGrabbers) != -1) {
-        enumDefaultVal = grabberType;
-        break;
-      }
-    }
-    updateJsonEditorSelection(screenGrabberOptions, "type", {}, enumVals, enumTitelVals, enumDefaultVal);
-  });
-  */
 
   conf_editor_screen.on('ready', function () {
 
@@ -422,7 +389,13 @@ $(document).ready(function () {
   };
 
   $('#btn_submit_screengrabber').off().on('click', function () {
-    requestWriteConfig(conf_editor_screen.getValue());
+    var saveOptions = conf_editor_screen.getValue();
+
+    var instCaptOptions = window.serverConfig.instCapture;
+    instCaptOptions.systemEnable = true;
+    saveOptions.instCapture = instCaptOptions;
+
+    requestWriteConfig(saveOptions);
   });
 
   // External Input Sources (Video-Grabbers)
@@ -692,8 +665,13 @@ $(document).ready(function () {
     });
 
     $('#btn_submit_videograbber').off().on('click', function () {
-      var v4l2Options = conf_editor_video.getValue();
-      requestWriteConfig(v4l2Options);
+      var saveOptions = conf_editor_video.getValue();
+
+      var instCaptOptions = window.serverConfig.instCapture;
+      instCaptOptions.v4lEnable = true;
+      saveOptions.instCapture = instCaptOptions;
+
+      requestWriteConfig(saveOptions);
     });
   }
 
@@ -784,7 +762,7 @@ $(document).ready(function () {
       }
     }
 
-    console.log("discoveryResult", discoveryResult);
+    //console.log("discoveryResult", discoveryResult);
     discoveredInputSources = discoveryResult.video_sources;
 
     switch (type) {

@@ -69,8 +69,6 @@ $(document).ready(function () {
 
 
   conf_editor_instCapt.watch('root.instCapture.systemEnable', () => {
-
-    console.log("conf_editor_instCapt.watch(root.instCapture.systemEnable)");
     var systemEnable = conf_editor_instCapt.getEditor("root.instCapture.systemEnable").getValue();
     if (systemEnable) {
         discoverInputSources("screen");
@@ -419,8 +417,16 @@ $(document).ready(function () {
     conf_editor_video.on('change', function () {
       var deviceSelected = conf_editor_video.getEditor("root.grabberV4L2.available_devices").getValue();
       if (!conf_editor_video.validate().length) {
-        if (deviceSelected !== "NONE") {
-          window.readOnlyMode ? $('#btn_submit_videograbber').attr('disabled', true) : $('#btn_submit_videograbber').attr('disabled', false);
+
+        switch (deviceSelected) {
+          case "CUSTOM":
+            showAllVideoInputOptions(conf_editor_video, "grabberV4L2", false);
+            break;
+          case "NONE":
+            break;
+          default:
+            window.readOnlyMode ? $('#btn_submit_videograbber').attr('disabled', true) : $('#btn_submit_videograbber').attr('disabled', false);
+            break;
         }
       }
       else {
@@ -430,7 +436,7 @@ $(document).ready(function () {
 
     conf_editor_video.watch('root.grabberV4L2.available_devices', () => {
       var deviceSelected = conf_editor_video.getEditor("root.grabberV4L2.available_devices").getValue();
-      if (deviceSelected === "NONE" || deviceSelected === "") {
+      if (deviceSelected === "NONE" || deviceSelected === "CUSTOM" || deviceSelected === "") {
         $('#btn_submit_videograbber').attr('disabled', true);
       }
       else {
@@ -461,6 +467,7 @@ $(document).ready(function () {
               enumDefaultVal = configuredVideoInput;
             }
           }
+
           updateJsonEditorSelection(conf_editor_video.getEditor('root.grabberV4L2'),
             'device_inputs', addSchemaElements, enumVals, enumTitelVals, enumDefaultVal, false);
         }
@@ -740,12 +747,19 @@ $(document).ready(function () {
 
     if (enumVals.length > 0) {
       configuredDevice = window.serverConfig.grabberV4L2.available_devices;
+
+      var custom = false;
       if ($.inArray(configuredDevice, enumVals) != -1) {
         enumDefaultVal = configuredDevice;
       }
+      else {
+        custom = true;
+        enumDefaultVal = "CUSTOM";
+        showAllVideoInputOptions(conf_editor_video, "grabberV4L2", false);
+      }
 
       updateJsonEditorSelection(conf_editor_video.getEditor('root.grabberV4L2'),
-        'available_devices', {}, enumVals, enumTitelVals, enumDefaultVal, false);
+        'available_devices', {}, enumVals, enumTitelVals, enumDefaultVal, custom, true, "edt_conf_enum_please_select");
     }
   }
 

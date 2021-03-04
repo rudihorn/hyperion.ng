@@ -291,6 +291,7 @@
   "edt_conf_enum_logverbose": "Verbose",
   "edt_conf_enum_logwarn": "Warning",
   "edt_conf_enum_multicolor_mean": "Multicolor",
+  "edt_conf_enum_please_select": "Please Select",
   "edt_conf_enum_rbg": "RBG",
   "edt_conf_enum_rgb": "RGB",
   "edt_conf_enum_right_left": "Right to left",

@@ -461,7 +461,7 @@ function createJsonEditor(container, schema, setconfig, usePanel, arrayre) {
   return editor;
 }
 
-function updateJsonEditorSelection(editor, key, addElements, newEnumVals, newTitelVals, newDefaultVal, addCustom) {
+function updateJsonEditorSelection(editor, key, addElements, newEnumVals, newTitelVals, newDefaultVal, addCustom, addCustomAsFirst, customText) {
   var orginalProperties = editor.schema.properties[key];
 
   var newSchema = [];
@@ -494,8 +494,22 @@ function updateJsonEditorSelection(editor, key, addElements, newEnumVals, newTit
   }
 
   if (addCustom) {
-    newEnumVals.push("custom");
-    newTitelVals.push("edt_conf_enum_custom");
+
+    if (newTitelVals.length === 0) {
+      newTitelVals = [...newEnumVals];
+    }
+
+    if (!!!customText) {
+      customText = "edt_conf_enum_custom";
+    }
+
+    if (addCustomAsFirst) {
+      newEnumVals.unshift("CUSTOM");
+      newTitelVals.unshift(customText);
+    } else {
+      newEnumVals.push("CUSTOM");
+      newTitelVals.push(customText);
+    }
 
     if (newSchema[key].options.infoText) {
       var customInfoText = newSchema[key].options.infoText + "_custom";

@@ -62,7 +62,7 @@
 
 	"grabberV4L2" :
 	{
-		"device"                : "auto",
+		"device"                : "none",
 		"input"                 : 0,
 		"encoding"              : "NO_CHANGE",
 		"width"                 : 0,

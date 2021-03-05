@@ -34,7 +34,6 @@ function installAndUpgrade()
 # install osx deps for hyperion compile
 if [[ $CI_NAME == 'osx' || $CI_NAME == 'darwin' ]]; then
 	echo "Install dependencies"
-	export HOMEBREW_BOTTLE_DOMAIN=https://dl.bintray.com/homebrew #remove if homebrew issue resolved. https://github.com/Homebrew/brew/issues/10739
 	brew update
 	dependencies=("qt5" "python" "libusb" "cmake" "doxygen")
 	installAndUpgrade "${dependencies[@]}"

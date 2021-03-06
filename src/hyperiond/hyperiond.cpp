@@ -597,62 +597,7 @@ void HyperionDaemon::handleSettingsUpdate(settings::type settingsType, const QJs
 		if (_videoGrabber == nullptr)
 		{
 			_videoGrabber = new VideoWrapper();
-
-			// Device
-			_videoGrabber->setDevice(grabberConfig["device"].toString("auto"));
-
-			// Device input
-			_videoGrabber->setInput(grabberConfig["input"].toInt(0));
-
-			// Device resolution
-			_videoGrabber->setWidthHeight(grabberConfig["width"].toInt(0), grabberConfig["height"].toInt(0));
-
-			// Device framerate
-			_videoGrabber->setFramerate(grabberConfig["fps"].toInt(15));
-
-			// Device encoding format
-			_videoGrabber->setEncoding(grabberConfig["encoding"].toString("NO_CHANGE"));
-
-			// Video standard
-			_videoGrabber->setVideoStandard(parseVideoStandard(grabberConfig["standard"].toString("NO_CHANGE")));
-
-			// Image size decimation
-			_videoGrabber->setPixelDecimation(grabberConfig["sizeDecimation"].toInt(8));
-
-			// Flip mode
-			_videoGrabber->setFlipMode(grabberConfig["flip"].toString("NO_CHANGE"));
-
-			// Image cropping
-			_videoGrabber->setCropping(
-					grabberConfig["cropLeft"].toInt(0),
-					grabberConfig["cropRight"].toInt(0),
-					grabberConfig["cropTop"].toInt(0),
-					grabberConfig["cropBottom"].toInt(0));
-
-			// Software frame decimation
-			_videoGrabber->setFpsSoftwareDecimation(grabberConfig["fpsSoftwareDecimation"].toInt(1));
-
-			// Signal detection
-			_videoGrabber->setSignalDetectionEnable(grabberConfig["signalDetection"].toBool(true));
-			_videoGrabber->setSignalDetectionOffset(
-					grabberConfig["sDHOffsetMin"].toDouble(0.25),
-					grabberConfig["sDVOffsetMin"].toDouble(0.25),
-					grabberConfig["sDHOffsetMax"].toDouble(0.75),
-					grabberConfig["sDVOffsetMax"].toDouble(0.75));
-			_videoGrabber->setSignalThreshold(
-					grabberConfig["redSignalThreshold"].toDouble(0.0) / 100.0,
-					grabberConfig["greenSignalThreshold"].toDouble(0.0) / 100.0,
-					grabberConfig["blueSignalThreshold"].toDouble(0.0) / 100.0,
-					grabberConfig["noSignalCounterThreshold"].toInt(50) );
-
-			// CEC Standby
-			_videoGrabber->setCecDetectionEnable(grabberConfig["cecDetection"].toBool(true));
-
-			// Brightness, Contrast, Saturation, Hue
-			_videoGrabber->setBrightnessContrastSaturationHue(grabberConfig["hardware_brightness"].toInt(0),
-													grabberConfig["hardware_contrast"].toInt(0),
-													grabberConfig["hardware_saturation"].toInt(0),
-													grabberConfig["hardware_hue"].toInt(0));
+			_videoGrabber->handleSettingsUpdate(settings::V4L2, QJsonDocument(grabberConfig));
 
 #if defined(ENABLE_MF)
 			Debug(_log, "Media Foundation grabber created");

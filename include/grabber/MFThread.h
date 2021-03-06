@@ -34,6 +34,7 @@ public:
 		int subsamp, unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
 		VideoMode videoMode, FlipMode flipMode, int currentFrame, int pixelDecimation);
 	void run();
+	void startThread();
 
 	bool isBusy();
 	void noBusy();
@@ -42,6 +43,7 @@ signals:
 	void newFrame(unsigned int threadIndex, const Image<ColorRgb>& data, unsigned int sourceCount);
 
 private:
+	void startOnThisThread();
 	void processImageMjpeg();
 
 #ifdef HAVE_TURBO_JPEG

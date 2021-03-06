@@ -6,7 +6,7 @@ namespace { const bool verbose = false; }
 
 MFGrabber::MFGrabber()
 	: Grabber("V4L2:MEDIA_FOUNDATION")
-	, _currentDeviceName("auto")
+	, _currentDeviceName("none")
 	, _newDeviceName("auto")
 	, _hr(S_FALSE)
 	, _sourceReader(nullptr)
@@ -24,6 +24,7 @@ MFGrabber::MFGrabber()
 	, _signalDetectionEnabled(true)
 	, _noSignalDetected(false)
 	, _initialized(false)
+	, _reload(false)
 	, _x_frac_min(0.25)
 	, _y_frac_min(0.25)
 	, _x_frac_max(0.75)
@@ -71,7 +72,7 @@ bool MFGrabber::start()
 			return true;
 		}
 		else
-			_currentDeviceName = "auto";
+			_currentDeviceName = "none";
 	}
 
 	return false;
@@ -84,7 +85,7 @@ void MFGrabber::stop()
 		_initialized = false;
 		_threadManager.stop();
 		uninit_device();
-		// restore pixelformat to configs value if it is not auto or device name has not changed
+		// restore pixelformat to configs value if it is not 'none' or device name has not changed
 		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
 			_pixelFormat = _pixelFormatConfig;
 		_deviceProperties.clear();
@@ -96,96 +97,43 @@ bool MFGrabber::init()
 {
 	if(!_initialized && SUCCEEDED(_hr))
 	{
-		QString foundDevice = "";
-		int     foundIndex = -1, bestGuess = -1, bestGuessMinX = INT_MAX, bestGuessMinFPS = INT_MAX;
-		bool    autoDiscovery = (QString::compare(_currentDeviceName, "auto", Qt::CaseInsensitive) == 0 );
+		int deviceIndex = -1;
+		bool noDeviceName = _currentDeviceName.compare("none", Qt::CaseInsensitive) == 0 || _currentDeviceName.compare("auto", Qt::CaseInsensitive) == 0;
 
 		// enumerate the video capture devices on the user's system
 		enumVideoCaptureDevices();
 
-		if(!autoDiscovery && !_deviceProperties.contains(_currentDeviceName))
-		{
-			Debug(_log, "Device '%s' is not available. Changing to auto.", QSTRING_CSTR(_currentDeviceName));
-			autoDiscovery = true;
-		}
+		if(noDeviceName)
+			return false;
 
-		if(autoDiscovery)
+		if(!_deviceProperties.contains(_currentDeviceName))
 		{
-			Debug(_log, "Forcing auto discovery device");
-			if(_deviceProperties.count()>0)
-			{
-				foundDevice = _deviceProperties.firstKey();
-				_currentDeviceName = foundDevice;
-				Debug(_log, "Auto discovery set to %s", QSTRING_CSTR(_currentDeviceName));
-			}
-		}
-		else
-			foundDevice = _currentDeviceName;
-
-		if(foundDevice.isNull() || foundDevice.isEmpty() || !_deviceProperties.contains(foundDevice))
-		{
-			Warning(_log, "Could not find any capture device");
+			Debug(_log, "Configured device '%s' is not available.", QSTRING_CSTR(_currentDeviceName));
+			_currentDeviceName = "none";
 			return false;
 		}
 
-		QList<DeviceProperties> dev = _deviceProperties[foundDevice];
+		QList<DeviceProperties> dev = _deviceProperties[_currentDeviceName];
 
-		Debug(_log,  "Searching for %s %d x %d @ %d fps (%s)", QSTRING_CSTR(foundDevice), _width, _height,_fps, QSTRING_CSTR(pixelFormatToString(_pixelFormat)));
+		Debug(_log,  "Searching for %s %d x %d @ %d fps (%s)", QSTRING_CSTR(_currentDeviceName), _width, _height,_fps, QSTRING_CSTR(pixelFormatToString(_pixelFormat)));
 
-		for( int i = 0; i < dev.count() && foundIndex < 0; ++i )
+		for( int i = 0; i < dev.count() && deviceIndex < 0; ++i )
 		{
-			bool strict = false;
-			const auto& val = dev[i];
-
-			if(bestGuess == -1 || (val.width <= bestGuessMinX && val.width >= 640 && val.fps <= bestGuessMinFPS && val.fps >= 10))
-			{
-				bestGuess = i;
-				bestGuessMinFPS = val.fps;
-				bestGuessMinX = val.width;
-			}
-
-			if(_width && _height)
-			{
-				strict = true;
-				if(val.width != _width || val.height != _height)
-					continue;
-			}
-
-			if(_fps && _fps!=15)
-			{
-				strict = true;
-				if(val.fps != _fps)
-					continue;
-			}
-
-			if(_pixelFormat != PixelFormat::NO_CHANGE)
-			{
-				strict = true;
-				if(val.pf != _pixelFormat)
-					continue;
-			}
-
-			if(strict && (val.fps <= 60 || _fps != 15))
-				foundIndex = i;
-		}
-
-		if(foundIndex < 0 && bestGuess >= 0)
-		{
-			if(!autoDiscovery && _width != 0 && _height != 0)
-				Warning(_log, "Selected resolution not found in supported modes. Set default configuration");
+			if(dev[i].width != _width || dev[i].height != _height || dev[i].fps != _fps || dev[i].pf != _pixelFormat)
+				continue;
 			else
-				Debug(_log, "Set default configuration");
-
-			foundIndex = bestGuess;
+				deviceIndex = i;
 		}
 
-		if(foundIndex>=0)
-		{
-			if(SUCCEEDED(init_device(foundDevice, dev[foundIndex])))
-				_initialized = true;
-		}
+		if(deviceIndex >= 0 && SUCCEEDED(init_device(_currentDeviceName, dev[deviceIndex])))
+			_initialized = true;
 		else
-			Warning(_log, "Could not find any capture device settings");
+		{
+			Debug(_log, "Configured device '%s' is not available.", QSTRING_CSTR(_currentDeviceName));
+			_currentDeviceName = "none";
+			return false;
+		}
+
 	}
 
 	return _initialized;
@@ -578,38 +526,17 @@ void MFGrabber::process_image(const void *frameImageBuffer, int size)
 					{
 						MFThread* _thread = _threadManager._threads[i];
 						_thread->setup(i, _pixelFormat, (uint8_t *)frameImageBuffer, size, _width, _height, _lineLength, _subsamp, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, processFrameIndex, _pixelDecimation);
-						_threadManager._threads[i]->start();
+
+						if (_threadManager._maxThreads > 1)
+							_threadManager._threads[i]->start();
+						else
+							_threadManager._threads[i]->startThread();
 						break;
 					}
 				}
 			}
 		}
 	}
-}
-
-void MFGrabber::setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold)
-{
-	_noSignalThresholdColor.red   = uint8_t(255*redSignalThreshold);
-	_noSignalThresholdColor.green = uint8_t(255*greenSignalThreshold);
-	_noSignalThresholdColor.blue  = uint8_t(255*blueSignalThreshold);
-	_noSignalCounterThreshold     = qMax(1, noSignalCounterThreshold);
-
-	if(_signalDetectionEnabled)
-		Info(_log, "Signal threshold set to: {%d, %d, %d} and frames: %d", _noSignalThresholdColor.red, _noSignalThresholdColor.green, _noSignalThresholdColor.blue, _noSignalCounterThreshold );
-}
-
-void MFGrabber::setSignalDetectionOffset(double horizontalMin, double verticalMin, double horizontalMax, double verticalMax)
-{
-	// rainbow 16 stripes 0.47 0.2 0.49 0.8
-	// unicolor: 0.25 0.25 0.75 0.75
-
-	_x_frac_min = horizontalMin;
-	_y_frac_min = verticalMin;
-	_x_frac_max = horizontalMax;
-	_y_frac_max = verticalMax;
-
-	if(_signalDetectionEnabled)
-		Info(_log, "Signal detection area set to: %f,%f x %f,%f", _x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max );
 }
 
 void MFGrabber::receive_image(const void *frameImageBuffer, int size)
@@ -676,82 +603,120 @@ void MFGrabber::checkSignalDetectionEnabled(Image<ColorRgb> image)
 		emit newFrame(image);
 }
 
-void MFGrabber::setSignalDetectionEnable(bool enable)
-{
-	if(_signalDetectionEnabled != enable)
-	{
-		_signalDetectionEnabled = enable;
-		Info(_log, "Signal detection is now %s", enable ? "enabled" : "disabled");
-	}
-}
-
-bool MFGrabber::setDevice(QString device)
+void MFGrabber::setDevice(QString device)
 {
 	if(_currentDeviceName != device)
 	{
 		_currentDeviceName = device;
+		_reload = true;
+	}
+}
+
+bool MFGrabber::setInput(int input)
+{
+	if(Grabber::setInput(input))
+	{
+		_reload = true;
 		return true;
 	}
-	return false;
+
+	 return false;
 }
 
 bool MFGrabber::setWidthHeight(int width, int height)
 {
 	if(Grabber::setWidthHeight(width, height))
 	{
-		Debug(_log,"Set device resolution to width: %i, height: %i", width, height);
-		return true;
-	}
-	else if(width == 0 && height == 0)
-	{
-		_width = _height = 0;
-		Debug(_log,"Set device resolution to 'Automatic'");
+		_reload = true;
 		return true;
 	}
 
-	return false;
+	 return false;
 }
 
-bool MFGrabber::setEncoding(QString enc)
+void MFGrabber::setEncoding(QString enc)
 {
 	if(_pixelFormatConfig != parsePixelFormat(enc))
 	{
-		Debug(_log,"Set hardware encoding to: %s", QSTRING_CSTR(enc.toUpper()));
 		_pixelFormatConfig = parsePixelFormat(enc);
-		if(!_initialized)
+		if(_initialized)
+		{
+			Debug(_log,"Set hardware encoding to: %s", QSTRING_CSTR(enc.toUpper()));
+			_reload = true;
+		}
+		else
 			_pixelFormat = _pixelFormatConfig;
-		return true;
 	}
-	return false;
 }
 
-bool MFGrabber::setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue)
+void MFGrabber::setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue)
 {
 	if(_brightness != brightness || _contrast != contrast || _saturation != saturation || _hue != hue)
 	{
+		if(_initialized)
+			Debug(_log,"Set brightness to %i, contrast to %i, saturation to %i, hue to %i", _brightness, _contrast, _saturation, _hue);
+
 		_brightness = brightness;
 		_contrast = contrast;
 		_saturation = saturation;
 		_hue = hue;
 
-		Debug(_log,"Set brightness to %i, contrast to %i, saturation to %i, hue to %i", _brightness, _contrast, _saturation, _hue);
-		return true;
+		_reload = true;
 	}
-	return false;
 }
 
-void MFGrabber::reloadGrabber()
+void MFGrabber::setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold)
 {
-	Debug(_log,"Reloading Media Foundation Grabber");
-	// stop grabber
-	uninit();
-	// restore pixelformat to configs value if it is not auto or device name has not changed
-	if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
-		_pixelFormat = _pixelFormatConfig;
-	// set _newDeviceName
-	_newDeviceName = _currentDeviceName;
-	// start grabber
-	start();
+	_noSignalThresholdColor.red   = uint8_t(255*redSignalThreshold);
+	_noSignalThresholdColor.green = uint8_t(255*greenSignalThreshold);
+	_noSignalThresholdColor.blue  = uint8_t(255*blueSignalThreshold);
+	_noSignalCounterThreshold     = qMax(1, noSignalCounterThreshold);
+
+	if(_signalDetectionEnabled)
+		Info(_log, "Signal threshold set to: {%d, %d, %d} and frames: %d", _noSignalThresholdColor.red, _noSignalThresholdColor.green, _noSignalThresholdColor.blue, _noSignalCounterThreshold );
+}
+
+void MFGrabber::setSignalDetectionOffset(double horizontalMin, double verticalMin, double horizontalMax, double verticalMax)
+{
+	// rainbow 16 stripes 0.47 0.2 0.49 0.8
+	// unicolor: 0.25 0.25 0.75 0.75
+
+	_x_frac_min = horizontalMin;
+	_y_frac_min = verticalMin;
+	_x_frac_max = horizontalMax;
+	_y_frac_max = verticalMax;
+
+	if(_signalDetectionEnabled)
+		Info(_log, "Signal detection area set to: %f,%f x %f,%f", _x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max );
+}
+
+void MFGrabber::setSignalDetectionEnable(bool enable)
+{
+	if(_signalDetectionEnabled != enable)
+	{
+		_signalDetectionEnabled = enable;
+		if(_initialized)
+			Info(_log, "Signal detection is now %s", enable ? "enabled" : "disabled");
+	}
+}
+
+bool MFGrabber::reload(bool force)
+{
+	if (_sourceReader && (_reload || force))
+	{
+		Info(_log,"Reloading Media Foundation Grabber");
+		uninit();
+
+		// restore pixelformat to configs value if it is not 'none' or device name has not changed
+		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
+			_pixelFormat = _pixelFormatConfig;
+
+		_newDeviceName = _currentDeviceName;
+		_reload = false;
+		return start();
+	}
+
+	return false;
 }
 
 QJsonArray MFGrabber::discover(const QJsonObject& params)

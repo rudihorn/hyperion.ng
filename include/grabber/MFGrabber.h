@@ -59,16 +59,15 @@ public:
 	~MFGrabber() override;
 
 	void receive_image(const void *frameImageBuffer, int size);
-	QRectF getSignalDetectionOffset() const { return QRectF(_x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max); }
-	bool getSignalDetectionEnabled() const { return _signalDetectionEnabled; }
-	void setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold) override;
-	void setSignalDetectionOffset( double verticalMin, double horizontalMin, double verticalMax, double horizontalMax) override;
-	void setSignalDetectionEnable(bool enable) override;
-	bool setDevice(QString device) override;
+	void setDevice(QString device);
+	bool setInput(int input) override;
 	bool setWidthHeight(int width, int height) override;
-	bool setEncoding(QString enc);
-	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
-	void reloadGrabber();
+	void setEncoding(QString enc);
+	void setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
+	void setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold);
+	void setSignalDetectionOffset( double verticalMin, double horizontalMin, double verticalMax, double horizontalMax);
+	void setSignalDetectionEnable(bool enable);
+	bool reload(bool force = false);
 
 	///
 	/// @brief Discover available Media Foundation USB devices (for configuration).
@@ -109,7 +108,8 @@ private:
 	ColorRgb									_noSignalThresholdColor;
 	bool										_signalDetectionEnabled,
 												_noSignalDetected,
-												_initialized;
+												_initialized,
+												_reload;
 	double										_x_frac_min,
 												_y_frac_min,
 												_x_frac_max,

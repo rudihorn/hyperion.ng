@@ -45,7 +45,7 @@ void Grabber::setVideoStandard(VideoStandard videoStandard)
 		_videoStandard = videoStandard;
 }
 
-bool Grabber::setPixelDecimation(unsigned pixelDecimation)
+bool Grabber::setPixelDecimation(int pixelDecimation)
 {
 	if (_pixelDecimation != pixelDecimation)
 	{
@@ -135,7 +135,7 @@ bool Grabber::setFramerate(int fps)
 {
 	if((fps > 0) && (_fps != fps))
 	{
-		Debug(_log,"Set new fps to: %i", fps);
+		Debug(_log,"Set new frames per second to: %i fps", fps);
 		_fps = fps;
 		return true;
 	}
@@ -143,17 +143,12 @@ bool Grabber::setFramerate(int fps)
 	return false;
 }
 
-bool Grabber::setFpsSoftwareDecimation(unsigned decimation)
+void Grabber::setFpsSoftwareDecimation(int decimation)
 {
 	if((_fpsSoftwareDecimation != decimation))
 	{
 		_fpsSoftwareDecimation = decimation;
 		if(decimation > 0)
 			Debug(_log,"Skip %i frame per second", decimation);
-
-		return true;
 	}
-
-	return false;
-
 }

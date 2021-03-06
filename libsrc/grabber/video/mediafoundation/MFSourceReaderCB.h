@@ -119,7 +119,7 @@ public:
 		{
 			_hrStatus = hrStatus;
 			_com_error error(_hrStatus);
-			emit _grabber->readError(error.ErrorMessage());
+			Error(_grabber->_log, "%s", error.ErrorMessage());
 			goto done;
 		}
 

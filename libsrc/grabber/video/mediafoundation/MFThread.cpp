@@ -63,6 +63,16 @@ void MFThread::setup(
 
 void MFThread::run()
 {
+	startOnThisThread();
+}
+
+void MFThread::startThread()
+{
+	startOnThisThread();
+}
+
+void MFThread::startOnThisThread()
+{
 	if (_isActive && _width > 0 && _height > 0)
 	{
 		if (_pixelFormat == PixelFormat::MJPEG)

@@ -40,11 +40,6 @@ public:
 	bool setWidthHeight(int width, int height) override { return true; }
 
 	///
-	/// @brief Apply new pixelDecimation
-	///
-	bool setPixelDecimation(unsigned pixelDecimation) override;
-
-	///
 	/// Set the crop values
 	/// @param  cropLeft    Left pixel crop
 	/// @param  cropRight   Right pixel crop

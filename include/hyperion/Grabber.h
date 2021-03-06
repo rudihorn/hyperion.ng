@@ -62,34 +62,7 @@ public:
 	/// @brief Apply new framerate software decimation (used from v4l2/MediaFoundation)
 	/// @param decimation how many frames per second to omit
 	///
-	virtual bool setFpsSoftwareDecimation(unsigned decimation);
-
-	///
-	/// @brief Apply new signalThreshold (used from v4l2)
-	///
-	virtual void setSignalThreshold(
-					double redSignalThreshold,
-					double greenSignalThreshold,
-					double blueSignalThreshold,
-					int noSignalCounterThreshold = 50) {}
-	///
-	/// @brief Apply new SignalDetectionOffset  (used from v4l2)
-	///
-	virtual void setSignalDetectionOffset(
-					double verticalMin,
-					double horizontalMin,
-					double verticalMax,
-					double horizontalMax) {}
-
-	///
-	/// @brief Apply SignalDetectionEnable (used from v4l2)
-	///
-	virtual void setSignalDetectionEnable(bool enable) {}
-
-	///
-	/// @brief Apply CecDetectionEnable (used from v4l2/MediaFoundation)
-	///
-	virtual void setCecDetectionEnable(bool enable) {}
+	virtual void setFpsSoftwareDecimation(int decimation);
 
 	///
 	/// @brief Apply videoStandard (used from v4l2)
@@ -99,12 +72,7 @@ public:
 	///
 	/// @brief  Apply new pixelDecimation (used from v4l2, MediaFoundation, x11, xcb and qt)
 	///
-	virtual bool setPixelDecimation(unsigned pixelDecimation);
-
-	///
-	/// @brief Apply device (used from v4l2/MediaFoundation)
-	///
-	virtual bool setDevice(QString device) { return false; }
+	virtual bool setPixelDecimation(int pixelDecimation);
 
 	///
 	/// @brief Apply display index (used from qt)
@@ -148,7 +116,7 @@ protected:
 	VideoStandard _videoStandard;
 
 	/// Image size decimation
-	unsigned _pixelDecimation;
+	int _pixelDecimation;
 
 	/// the used Flip Mode
 	FlipMode _flipMode;
@@ -163,7 +131,7 @@ protected:
 	int _fps;
 
 	/// fps software decimation
-	unsigned _fpsSoftwareDecimation;
+	int _fpsSoftwareDecimation;
 
 	/// device input
 	int _input;

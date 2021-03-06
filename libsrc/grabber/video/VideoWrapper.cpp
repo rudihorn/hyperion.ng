@@ -6,11 +6,13 @@
 #include <QTimer>
 
 VideoWrapper::VideoWrapper()
+#if defined(ENABLE_V4L2)
 	: GrabberWrapper("V4L2", &_grabber, 0, 0, 10)
+#elif defined(ENABLE_MF)
+	: GrabberWrapper("V4L2:MEDIA_FOUNDATION", &_grabber, 0, 0, 10)
+#endif
 	, _grabber()
 {
-	_ggrabber = &_grabber;
-
 	// register the image type
 	qRegisterMetaType<Image<ColorRgb>>("Image<ColorRgb>");
 
@@ -24,11 +26,6 @@ VideoWrapper::~VideoWrapper()
 	stop();
 }
 
-bool VideoWrapper::getSignalDetectionEnable() const
-{
-	return _grabber.getSignalDetectionEnabled();
-}
-
 bool VideoWrapper::start()
 {
 	return (_grabber.prepare() && _grabber.start() && GrabberWrapper::start());
@@ -38,76 +35,6 @@ void VideoWrapper::stop()
 {
 	_grabber.stop();
 	GrabberWrapper::stop();
-}
-
-bool VideoWrapper::setDevice(const QString& device)
-{
-	return _grabber.setDevice(device);
-}
-
-bool VideoWrapper::setInput(int input)
-{
-	return _grabber.setInput(input);
-}
-
-bool VideoWrapper::setWidthHeight(int width, int height)
-{
-	return _grabber.setWidthHeight(width, height);
-}
-
-bool VideoWrapper::setFramerate(int fps)
-{
-	return _grabber.setFramerate(fps);
-}
-
-bool VideoWrapper::setEncoding(QString enc)
-{
-	return _grabber.setEncoding(enc);
-}
-
-void VideoWrapper::setVideoStandard(VideoStandard videoStandard)
-{
-	_grabber.setVideoStandard(videoStandard);
-}
-
-void VideoWrapper::setPixelDecimation(unsigned pixelDecimation)
-{
-	_grabber.setPixelDecimation(pixelDecimation);
-}
-
-void VideoWrapper::setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom)
-{
-	_grabber.setCropping(cropLeft, cropRight, cropTop, cropBottom);
-}
-
-void VideoWrapper::setFpsSoftwareDecimation(unsigned decimation)
-{
-	_grabber.setFpsSoftwareDecimation(decimation);
-}
-
-void VideoWrapper::setSignalDetectionEnable(bool enable)
-{
-	_grabber.setSignalDetectionEnable(enable);
-}
-
-void VideoWrapper::setSignalDetectionOffset(double verticalMin, double horizontalMin, double verticalMax, double horizontalMax)
-{
-	_grabber.setSignalDetectionOffset(verticalMin, horizontalMin, verticalMax, horizontalMax);
-}
-
-void VideoWrapper::setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold)
-{
-	_grabber.setSignalThreshold( redSignalThreshold, greenSignalThreshold, blueSignalThreshold, noSignalCounterThreshold);
-}
-
-void VideoWrapper::setCecDetectionEnable(bool enable)
-{
-	_grabber.setCecDetectionEnable(enable);
-}
-
-bool VideoWrapper::setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue)
-{
-	return _grabber.setBrightnessContrastSaturationHue(brightness, contrast, saturation, hue);
 }
 
 #if defined(ENABLE_CEC) && !defined(ENABLE_MF)
@@ -125,28 +52,21 @@ void VideoWrapper::handleSettingsUpdate(settings::type type, const QJsonDocument
 	{
 		// extract settings
 		const QJsonObject& obj = config.object();
-		// reload state
-		bool reload = false;
 
 		// Device
-		if (_grabber.setDevice(obj["device"].toString("auto")))
-			reload = true;
+		_grabber.setDevice(obj["device"].toString("auto"));
 
 		// Device input
-		if (_grabber.setInput(obj["input"].toInt(0)))
-			reload = true;
+		_grabber.setInput(obj["input"].toInt(0));
 
 		// Device resolution
-		if (_grabber.setWidthHeight(obj["width"].toInt(0), obj["height"].toInt(0)))
-			reload = true;
+		_grabber.setWidthHeight(obj["width"].toInt(0), obj["height"].toInt(0));
 
 		// Device framerate
-		if (_grabber.setFramerate(obj["fps"].toInt(15)))
-			reload = true;
+		_grabber.setFramerate(obj["fps"].toInt(15));
 
 		// Device encoding format
-		if (_grabber.setEncoding(obj["encoding"].toString("NO_CHANGE")))
-			reload = true;
+		_grabber.setEncoding(obj["encoding"].toString("NO_CHANGE"));
 
 		// Video standard
 		_grabber.setVideoStandard(parseVideoStandard(obj["standard"].toString("NO_CHANGE")));
@@ -165,11 +85,16 @@ void VideoWrapper::handleSettingsUpdate(settings::type type, const QJsonDocument
 			obj["cropBottom"].toInt(0));
 
 		// Brightness, Contrast, Saturation, Hue
-		if (_grabber.setBrightnessContrastSaturationHue(obj["hardware_brightness"].toInt(0), obj["hardware_contrast"].toInt(0), obj["hardware_saturation"].toInt(0), obj["hardware_hue"].toInt(0)))
-			reload = true;
+		_grabber.setBrightnessContrastSaturationHue(
+			obj["hardware_brightness"].toInt(0),
+			obj["hardware_contrast"].toInt(0),
+			obj["hardware_saturation"].toInt(0),
+			obj["hardware_hue"].toInt(0));
 
+#if defined(ENABLE_CEC) && defined(ENABLE_V4L2)
 		// CEC Standby
 		_grabber.setCecDetectionEnable(obj["cecDetection"].toBool(true));
+#endif
 
 		// Software frame skipping
 		_grabber.setFpsSoftwareDecimation(obj["fpsSoftwareDecimation"].toInt(1));
@@ -185,11 +110,10 @@ void VideoWrapper::handleSettingsUpdate(settings::type type, const QJsonDocument
 			obj["redSignalThreshold"].toDouble(0.0)/100.0,
 			obj["greenSignalThreshold"].toDouble(0.0)/100.0,
 			obj["blueSignalThreshold"].toDouble(0.0)/100.0,
-			obj["noSignalCounterThreshold"].toInt(50) );
+			obj["noSignalCounterThreshold"].toInt(50));
 
 		// Reload the Grabber if any settings have been changed that require it
-		if (reload)
-			_grabber.reloadGrabber();
+		_grabber.reload();
 	}
 }
 

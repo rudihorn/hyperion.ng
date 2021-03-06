@@ -730,6 +730,7 @@ $(document).ready(function () {
     var enumVals = [];
     var enumTitelVals = [];
     var enumDefaultVal = "";
+    var custom = false;
 
     if (jQuery.isEmptyObject(discoveryInfo)) {
       enumVals.push("NONE");
@@ -743,12 +744,8 @@ $(document).ready(function () {
         enumVals.push(device.device_name);
       }
       conf_editor_video.getEditor('root.grabberV4L2').enable();
-    }
-
-    if (enumVals.length > 0) {
       configuredDevice = window.serverConfig.grabberV4L2.available_devices;
 
-      var custom = false;
       if ($.inArray(configuredDevice, enumVals) != -1) {
         enumDefaultVal = configuredDevice;
       }
@@ -757,10 +754,10 @@ $(document).ready(function () {
         enumDefaultVal = "CUSTOM";
         showAllVideoInputOptions(conf_editor_video, "grabberV4L2", false);
       }
-
-      updateJsonEditorSelection(conf_editor_video.getEditor('root.grabberV4L2'),
-        'available_devices', {}, enumVals, enumTitelVals, enumDefaultVal, custom, true, "edt_conf_enum_please_select");
     }
+
+    updateJsonEditorSelection(conf_editor_video.getEditor('root.grabberV4L2'),
+        'available_devices', {}, enumVals, enumTitelVals, enumDefaultVal, custom, true, "edt_conf_enum_please_select");
   }
 
   async function discoverInputSources(type, params) {

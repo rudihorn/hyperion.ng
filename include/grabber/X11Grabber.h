@@ -30,6 +30,8 @@ public:
 
 	~X11Grabber() override;
 
+	bool open();
+
 	bool Setup();
 
 	///
@@ -80,15 +82,17 @@ protected:
 	bool nativeEventFilter(const QByteArray & eventType, void * message, long int * result) override;
 
 private:
-	bool _XShmAvailable, _XShmPixmapAvailable, _XRenderAvailable,  _XRandRAvailable;
 
-	XImage* _xImage;
-	XShmSegmentInfo _shminfo;
 
 	/// Reference to the X11 display (nullptr if not opened)
 	Display* _x11Display;
 	Window _window;
 	XWindowAttributes _windowAttr;
+
+	bool _XShmAvailable, _XShmPixmapAvailable, _XRenderAvailable,  _XRandRAvailable;
+
+	XImage* _xImage;
+	XShmSegmentInfo _shminfo;
 
 	Pixmap _pixmap;
 	XRenderPictFormat* _srcFormat;

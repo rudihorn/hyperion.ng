@@ -6,7 +6,7 @@
 
 // Constants
 namespace {
-	const bool verbose = true;
+	const bool verbose = false;
 } //End of constants
 
 X11Grabber::X11Grabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation)
@@ -116,20 +116,11 @@ void X11Grabber::setupResources()
 
 bool X11Grabber::open()
 {
-	bool rc = true;
+	bool rc = false;
 	_x11Display = XOpenDisplay(nullptr);
-	if (_x11Display == nullptr)
+	if (_x11Display != nullptr)
 	{
-		Error(_log, "Unable to open display");
-		if (getenv("DISPLAY") != nullptr)
-		{
-			Error(_log, "%s",getenv("DISPLAY"));
-		}
-		else
-		{
-			Error(_log, "DISPLAY environment variable not set");
-		}
-		rc = false;
+		rc = true;
 	}
 	return rc;
 }
@@ -138,10 +129,19 @@ bool X11Grabber::Setup()
 {
 	bool result = false;
 
-	if ( open() )
+	if ( !open() )
 	{
-		Debug(_log, "");
-
+		if (getenv("DISPLAY") != nullptr)
+		{
+			Error(_log, "Unable to open display [%s]",getenv("DISPLAY"));
+		}
+		else
+		{
+			Error(_log, "DISPLAY environment variable not set");
+		}
+	}
+	else
+	{
 		_window = DefaultRootWindow(_x11Display);
 
 		int dummy, pixmaps_supported;

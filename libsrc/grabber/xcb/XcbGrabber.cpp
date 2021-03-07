@@ -14,6 +14,11 @@
 
 #include <memory>
 
+// Constants
+namespace {
+	const bool verbose = false;
+} //End of constants
+
 #define DOUBLE_TO_FIXED(d) ((xcb_render_fixed_t) ((d) * 65536))
 
 XcbGrabber::XcbGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation)
@@ -181,48 +186,65 @@ void XcbGrabber::setupShm()
 	}
 }
 
-bool XcbGrabber::Setup()
+bool XcbGrabber::open()
 {
-	int screen_num;
-	_connection = xcb_connect(nullptr, &screen_num);
+	bool rc = true;
+	_connection = xcb_connect(nullptr, &_screen_num);
 
 	int ret = xcb_connection_has_error(_connection);
 	if (ret != 0)
 	{
-		Error(_logger, "Cannot open display, error %d", ret);
-		return false;
+		Debug(_logger, "Cannot open display, error %d", ret);
+		rc = false;
+	}
+	else
+	{
+		const xcb_setup_t * setup = xcb_get_setup(_connection);
+		_screen = getScreen(setup, _screen_num);
+		if ( _screen == nullptr)
+		{
+			rc = false;
+		}
 	}
 
-	const xcb_setup_t * setup = xcb_get_setup(_connection);
-	_screen = getScreen(setup, screen_num);
+	return rc;
+}
 
-	if (!_screen)
+bool XcbGrabber::Setup()
+{
+	bool result = false;
+
+	if ( ! open() )
 	{
-		Error(_log, "Unable to open display, screen %d does not exist", screen_num);
-
-		if (getenv("DISPLAY"))
-			Error(_log, "%s", getenv("DISPLAY"));
+		if (getenv("DISPLAY") != nullptr)
+		{
+			Error(_log, "Unable to open display [%s], screen %d does not exist", getenv("DISPLAY"), _screen_num);
+		}
 		else
+		{
 			Error(_log, "DISPLAY environment variable not set");
+		}
 
 		freeResources();
 		return false;
 	}
+	else
+	{
+		setupRandr();
+		setupRender();
+		setupShm();
 
-	setupRandr();
-	setupRender();
-	setupShm();
+		Info(_log, QString("XcbRandR=[%1] XcbRender=[%2] XcbShm=[%3] XcbPixmap=[%4]")
+			 .arg(_XcbRandRAvailable     ? "available" : "unavailable")
+			 .arg(_XcbRenderAvailable    ? "available" : "unavailable")
+			 .arg(_XcbShmAvailable       ? "available" : "unavailable")
+			 .arg(_XcbShmPixmapAvailable ? "available" : "unavailable")
+			 .toStdString().c_str());
 
-	Info(_log, QString("XcbRandR=[%1] XcbRender=[%2] XcbShm=[%3] XcbPixmap=[%4]")
-		.arg(_XcbRandRAvailable     ? "available" : "unavailable")
-		.arg(_XcbRenderAvailable    ? "available" : "unavailable")
-		.arg(_XcbShmAvailable       ? "available" : "unavailable")
-		.arg(_XcbShmPixmapAvailable ? "available" : "unavailable")
-		.toStdString().c_str());
-
-	bool result = (updateScreenDimensions(true) >= 0);
-	ErrorIf(!result, _log, "XCB Grabber start failed");
-	setEnabled(result);
+		result = (updateScreenDimensions(true) >= 0);
+		ErrorIf(!result, _log, "XCB Grabber start failed");
+		setEnabled(result);
+	}
 	return result;
 }
 
@@ -460,4 +482,86 @@ xcb_render_pictformat_t XcbGrabber::findFormatForVisual(xcb_visualid_t visual) c
 		}
 	}
 	return {};
+}
+
+QJsonObject XcbGrabber::discover(const QJsonObject& params)
+{
+	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	QJsonObject inputsDiscovered;
+	if ( open() )
+	{
+		inputsDiscovered["device"] = "xcb";
+		inputsDiscovered["device_name"] = "XCB";
+		inputsDiscovered["type"] = "screen";
+
+		QJsonArray video_inputs;
+
+		if (_connection != nullptr && _screen != nullptr )
+		{
+			QJsonArray fps = { 1, 5, 10, 15, 20, 25, 30, 40, 50, 60 };
+
+			const xcb_setup_t * setup = xcb_get_setup(_connection);
+
+			xcb_screen_iterator_t it = xcb_setup_roots_iterator(setup);
+			xcb_screen_t * screen  = nullptr;
+
+			int i = 0;
+			// Iterate through all X screens
+			for (; it.rem > 0; xcb_screen_next(&it))
+			{
+				screen = it.data;
+
+				auto geometry = query<GetGeometry>(_connection, screen->root);
+				if (geometry == nullptr)
+				{
+					Debug(_log, "Failed to obtain screen geometry for screen [%d]", i);
+				}
+				else
+				{
+					QJsonObject in;
+
+					QString displayName;
+					auto property = query<GetProperty>(_connection, 0, screen->root, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 0, 0);
+					if ( property != nullptr )
+					{
+						if ( xcb_get_property_value_length(property.get()) > 0 )
+						{
+							displayName = (char *) xcb_get_property_value(property.get());
+						}
+					}
+
+					if (displayName.isEmpty())
+					{
+						displayName = QString("Display:%1").arg(i);
+					}
+
+					in["name"] = displayName;
+					in["inputIdx"] = i;
+
+					QJsonArray formats;
+					QJsonArray resolutionArray;
+					QJsonObject format;
+					QJsonObject resolution;
+
+					resolution["width"] = geometry->width;
+					resolution["height"] = geometry->height;
+					resolution["fps"] = fps;
+
+					resolutionArray.append(resolution);
+
+					format["resolutions"] = resolutionArray;
+					formats.append(format);
+
+					in["formats"] = formats;
+					video_inputs.append(in);
+				}
+				++i;
+			}
+		}
+		inputsDiscovered["video_inputs"] = video_inputs;
+	}
+	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	return inputsDiscovered;
 }

@@ -30,6 +30,9 @@
 #if defined(ENABLE_X11)
 	#include <grabber/X11Grabber.h>
 #endif
+#if defined(ENABLE_XCB)
+	#include <grabber/XcbGrabber.h>
+#endif
 
 #include <utils/jsonschema/QJsonFactory.h>
 #include <utils/jsonschema/QJsonSchemaChecker.h>
@@ -1483,10 +1486,17 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 					#endif
 
 					#ifdef ENABLE_X11
-					X11Grabber* x11grabber = new X11Grabber(0, 0, 0, 0, 0);
-					device = x11grabber->discover(params);
+					X11Grabber* x11Grabber = new X11Grabber();
+					device = x11Grabber->discover(params);
 					videoInputs.append(device);
-					delete x11grabber;
+					delete x11Grabber;
+					#endif
+
+					#ifdef ENABLE_XCB
+					XcbGrabber* xcbGrabber = new XcbGrabber();
+					device = xcbGrabber->discover(params);
+					videoInputs.append(device);
+					delete xcbGrabber;
 					#endif
 				}
 

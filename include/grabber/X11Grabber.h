@@ -26,7 +26,7 @@ class X11Grabber : public Grabber , public QAbstractNativeEventFilter
 {
 public:
 
-	X11Grabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation);
+	X11Grabber(int cropLeft=0, int cropRight=0, int cropTop=0, int cropBottom=0, int pixelDecimation=8);
 
 	~X11Grabber() override;
 

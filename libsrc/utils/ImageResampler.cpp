@@ -3,8 +3,8 @@
 #include <utils/Logger.h>
 
 ImageResampler::ImageResampler()
-	: _horizontalDecimation(1)
-	, _verticalDecimation(1)
+	: _horizontalDecimation(8)
+	, _verticalDecimation(8)
 	, _cropLeft(0)
 	, _cropRight(0)
 	, _cropTop(0)

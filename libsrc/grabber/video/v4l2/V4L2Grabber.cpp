@@ -49,9 +49,12 @@ static PixelFormat GetPixelFormat(const unsigned int format)
 
 V4L2Grabber::V4L2Grabber()
 	: Grabber("V4L2")
+	, _currentDeviceName("none")
+	, _newDeviceName("none")
 	, _ioMethod(IO_METHOD_MMAP)
 	, _fileDescriptor(-1)
 	, _pixelFormat(PixelFormat::NO_CHANGE)
+	, _pixelFormatConfig(PixelFormat::NO_CHANGE)
 	, _lineLength(-1)
 	, _frameByteSize(-1)
 	, _noSignalCounterThreshold(40)
@@ -67,7 +70,7 @@ V4L2Grabber::V4L2Grabber()
 	, _y_frac_max(0.75)
 	, _streamNotifier(nullptr)
 	, _initialized(false)
-	, _deviceAutoDiscoverEnabled(false)
+	, _reload(false)
 {
 }
 
@@ -81,7 +84,7 @@ void V4L2Grabber::uninit()
 	// stop if the grabber was not stopped
 	if (_initialized)
 	{
-		Debug(_log,"uninit grabber: %s", QSTRING_CSTR(_deviceName));
+		Debug(_log,"Uninit grabber: %s", QSTRING_CSTR(_newDeviceName));
 		stop();
 	}
 }
@@ -90,66 +93,47 @@ bool V4L2Grabber::init()
 {
 	if (!_initialized)
 	{
-		getV4Ldevices();
-		QString v4lDevices_str;
+		bool noDeviceName = _currentDeviceName.compare("none", Qt::CaseInsensitive) == 0 || _currentDeviceName.compare("auto", Qt::CaseInsensitive) == 0;
 
-		// show list only once
-		if (!_deviceName.startsWith("/dev/"))
+		// enumerate the video capture devices on the user's system
+		enumVideoCaptureDevices();
+
+		if(noDeviceName)
+			return false;
+
+		if(!_deviceProperties.contains(_currentDeviceName))
 		{
-			for (auto& dev: _v4lDevices)
-			{
-				v4lDevices_str += "\t"+ dev.first + "\t" + dev.second + "\n";
-			}
-			if (!v4lDevices_str.isEmpty())
-				Info(_log, "available V4L2 devices:\n%s", QSTRING_CSTR(v4lDevices_str));
+			Debug(_log, "Configured device at '%s' is not available.", QSTRING_CSTR(_currentDeviceName));
+			_currentDeviceName = "none";
+			return false;
 		}
 
-		if (_deviceName == "auto")
+		bool valid = false;
+		for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
+			if (i.key() == _currentDeviceName && valid == false)
+				for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
+					if (y.key() == _input && valid == false)
+						for (auto enc = y.value().encodingFormats.begin(); enc != y.value().encodingFormats.end(); enc++)
+								if(enc.key() == _pixelFormat && enc.value().width == _width && enc.value().height == _height && valid == false)
+									for (auto fps = enc.value().framerates.begin(); fps != enc.value().framerates.end(); fps++)
+										if(*fps == _fps && valid == false)
+											valid = true;
+
+		if (!valid)
 		{
-			_deviceAutoDiscoverEnabled = true;
-			_deviceName = "unknown";
-			Info( _log, "search for usable video devices" );
-			for (auto& dev: _v4lDevices)
-			{
-				_deviceName = dev.first;
-				if (init())
-				{
-					Info(_log, "found usable v4l2 device: %s (%s)",QSTRING_CSTR(dev.first), QSTRING_CSTR(dev.second));
-					_deviceAutoDiscoverEnabled = false;
-					return _initialized;
-				}
-			}
-			Info(_log, "no usable device found");
-		}
-		else if (!_deviceName.startsWith("/dev/"))
-		{
-			for (auto& dev: _v4lDevices)
-			{
-				if (_deviceName.toLower() == dev.second.toLower())
-				{
-					_deviceName = dev.first;
-					Info(_log, "found v4l2 device with configured name: %s (%s)", QSTRING_CSTR(dev.second), QSTRING_CSTR(dev.first) );
-					break;
-				}
-			}
-		}
-		else
-		{
-			Info(_log, "%s v4l device: %s", (_deviceAutoDiscoverEnabled? "test" : "configured"), QSTRING_CSTR(_deviceName));
+			Debug(_log, "Configured device at '%s' is not available.", QSTRING_CSTR(_currentDeviceName));
+			_currentDeviceName = "none";
+			return false;
 		}
 
 		bool opened = false;
 		try
 		{
-			// do not init with unknown device
-			if (_deviceName != "unknown")
+			if (open_device())
 			{
-				if (open_device())
-				{
-					opened = true;
-					init_device(_videoStandard);
-					_initialized = true;
-				}
+				opened = true;
+				init_device(_videoStandard);
+				_initialized = true;
 			}
 		}
 		catch(std::exception& e)
@@ -159,14 +143,15 @@ bool V4L2Grabber::init()
 				uninit_device();
 				close_device();
 			}
-			ErrorIf( !_deviceAutoDiscoverEnabled, _log, "V4l2 init failed (%s)", e.what());
+
+			Error(_log, "V4l2 init failed (%s)", e.what());
 		}
 	}
 
 	return _initialized;
 }
 
-void V4L2Grabber::getV4Ldevices()
+void V4L2Grabber::enumVideoCaptureDevices()
 {
 	QDirIterator it("/sys/class/video4linux/", QDirIterator::NoIteratorFlags);
 	_deviceProperties.clear();
@@ -312,33 +297,9 @@ void V4L2Grabber::getV4Ldevices()
 				devNameFile.close();
 			}
 
-			_v4lDevices.emplace("/dev/"+it.fileName(), devName);
 			_deviceProperties.insert("/dev/"+it.fileName(), properties);
 		}
     }
-}
-
-void V4L2Grabber::setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold)
-{
-	_noSignalThresholdColor.red   = uint8_t(255*redSignalThreshold);
-	_noSignalThresholdColor.green = uint8_t(255*greenSignalThreshold);
-	_noSignalThresholdColor.blue  = uint8_t(255*blueSignalThreshold);
-	_noSignalCounterThreshold     = qMax(1, noSignalCounterThreshold);
-
-	Info(_log, "Signal threshold set to: {%d, %d, %d}", _noSignalThresholdColor.red, _noSignalThresholdColor.green, _noSignalThresholdColor.blue );
-}
-
-void V4L2Grabber::setSignalDetectionOffset(double horizontalMin, double verticalMin, double horizontalMax, double verticalMax)
-{
-	// rainbow 16 stripes 0.47 0.2 0.49 0.8
-	// unicolor: 0.25 0.25 0.75 0.75
-
-	_x_frac_min = horizontalMin;
-	_y_frac_min = verticalMin;
-	_x_frac_max = horizontalMax;
-	_y_frac_max = verticalMax;
-
-	Info(_log, "Signal detection area set to: %f,%f x %f,%f", _x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max );
 }
 
 bool V4L2Grabber::start()
@@ -379,23 +340,23 @@ bool V4L2Grabber::open_device()
 {
 	struct stat st;
 
-	if (-1 == stat(QSTRING_CSTR(_deviceName), &st))
+	if (-1 == stat(QSTRING_CSTR(_currentDeviceName), &st))
 	{
-		throw_errno_exception("Cannot identify '" + _deviceName + "'");
+		throw_errno_exception("Cannot identify '" + _currentDeviceName + "'");
 		return false;
 	}
 
 	if (!S_ISCHR(st.st_mode))
 	{
-		throw_exception("'" + _deviceName + "' is no device");
+		throw_exception("'" + _currentDeviceName + "' is no device");
 		return false;
 	}
 
-	_fileDescriptor = open(QSTRING_CSTR(_deviceName), O_RDWR | O_NONBLOCK, 0);
+	_fileDescriptor = open(QSTRING_CSTR(_currentDeviceName), O_RDWR | O_NONBLOCK, 0);
 
 	if (-1 == _fileDescriptor)
 	{
-		throw_errno_exception("Cannot open '" + _deviceName + "'");
+		throw_errno_exception("Cannot open '" + _currentDeviceName + "'");
 		return false;
 	}
 
@@ -448,7 +409,7 @@ void V4L2Grabber::init_mmap()
 	{
 		if (EINVAL == errno)
 		{
-			throw_exception("'" + _deviceName + "' does not support memory mapping");
+			throw_exception("'" + _currentDeviceName + "' does not support memory mapping");
 			return;
 		}
 		else
@@ -460,7 +421,7 @@ void V4L2Grabber::init_mmap()
 
 	if (req.count < 2)
 	{
-		throw_exception("Insufficient buffer memory on " + _deviceName);
+		throw_exception("Insufficient buffer memory on " + _currentDeviceName);
 		return;
 	}
 
@@ -512,7 +473,7 @@ void V4L2Grabber::init_userp(unsigned int buffer_size)
 	{
 		if (EINVAL == errno)
 		{
-			throw_exception("'" + _deviceName + "' does not support user pointer");
+			throw_exception("'" + _currentDeviceName + "' does not support user pointer");
 			return;
 		}
 		else
@@ -546,7 +507,7 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 	{
 		if (EINVAL == errno)
 		{
-			throw_exception("'" + _deviceName + "' is no V4L2 device");
+			throw_exception("'" + _currentDeviceName + "' is no V4L2 device");
 			return;
 		}
 		else
@@ -558,7 +519,7 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 
 	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE))
 	{
-		throw_exception("'" + _deviceName + "' is no video capture device");
+		throw_exception("'" + _currentDeviceName + "' is no video capture device");
 		return;
 	}
 
@@ -568,7 +529,7 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 		{
 			if (!(cap.capabilities & V4L2_CAP_READWRITE))
 			{
-				throw_exception("'" + _deviceName + "' does not support read i/o");
+				throw_exception("'" + _currentDeviceName + "' does not support read i/o");
 				return;
 			}
 		}
@@ -579,7 +540,7 @@ void V4L2Grabber::init_device(VideoStandard videoStandard)
 		{
 			if (!(cap.capabilities & V4L2_CAP_STREAMING))
 			{
-				throw_exception("'" + _deviceName + "' does not support streaming i/o");
+				throw_exception("'" + _currentDeviceName + "' does not support streaming i/o");
 				return;
 			}
 		}
@@ -1022,7 +983,7 @@ int V4L2Grabber::read_frame()
 						{
 							throw_errno_exception("VIDIOC_DQBUF");
 							stop();
-							getV4Ldevices();
+							enumVideoCaptureDevices();
 						}
 						return 0;
 					}
@@ -1059,7 +1020,7 @@ int V4L2Grabber::read_frame()
 						{
 							throw_errno_exception("VIDIOC_DQBUF");
 							stop();
-							getV4Ldevices();
+							enumVideoCaptureDevices();
 						}
 						return 0;
 					}
@@ -1328,56 +1289,84 @@ int V4L2Grabber::xioctl(int fileDescriptor, int request, void *arg)
 	return r;
 }
 
-void V4L2Grabber::enumFrameIntervals(QList<int> &framerates, int fileDescriptor, int pixelformat, int width, int height)
+void V4L2Grabber::setDevice(const QString& device)
 {
-	// collect available frame rates
-	struct v4l2_frmivalenum frmivalenum;
-	CLEAR(frmivalenum);
-
-	frmivalenum.index = 0;
-	frmivalenum.pixel_format = pixelformat;
-	frmivalenum.width = width;
-	frmivalenum.height = height;
-
-	while (xioctl(fileDescriptor, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum) >= 0)
+	if (_currentDeviceName != device)
 	{
-		int rate;
-		switch (frmivalenum.type)
+		(_initialized)
+		? _newDeviceName = device
+		: _currentDeviceName = _newDeviceName = device;
+
+		_reload = true;
+	}
+}
+
+bool V4L2Grabber::setInput(int input)
+{
+	if(Grabber::setInput(input))
+	{
+		_reload = true;
+		return true;
+	}
+
+	 return false;
+}
+
+bool V4L2Grabber::setWidthHeight(int width, int height)
+{
+	if(Grabber::setWidthHeight(width, height))
+	{
+		_reload = true;
+		return true;
+	}
+
+	 return false;
+}
+
+void V4L2Grabber::setEncoding(QString enc)
+{
+	if(_pixelFormatConfig != parsePixelFormat(enc))
+	{
+		_pixelFormatConfig = parsePixelFormat(enc);
+		if(_initialized)
 		{
-			case V4L2_FRMSIZE_TYPE_DISCRETE:
-			{
-				if (frmivalenum.discrete.numerator != 0)
-				{
-					rate = frmivalenum.discrete.denominator / frmivalenum.discrete.numerator;
-					if (!framerates.contains(rate))
-						framerates.append(rate);
-				}
-			}
-			break;
-			case V4L2_FRMSIZE_TYPE_CONTINUOUS:
-			case V4L2_FRMSIZE_TYPE_STEPWISE:
-			{
-				if (frmivalenum.stepwise.min.denominator != 0)
-				{
-					rate = frmivalenum.stepwise.min.denominator / frmivalenum.stepwise.min.numerator;
-					if (!framerates.contains(rate))
-						framerates.append(rate);
-				}
-			}
+			Debug(_log,"Set hardware encoding to: %s", QSTRING_CSTR(enc.toUpper()));
+			_reload = true;
 		}
-		frmivalenum.index++;
+		else
+			_pixelFormat = _pixelFormatConfig;
 	}
+}
 
-	// If VIDIOC_ENUM_FRAMEINTERVALS fails, try to read the current fps via VIDIOC_G_PARM if possible and insert it into 'framerates'.
-	if (xioctl(fileDescriptor, VIDIOC_ENUM_FRAMESIZES, &frmivalenum) == -1)
-	{
-		struct v4l2_streamparm streamparms;
-		CLEAR(streamparms);
-		streamparms.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+void V4L2Grabber::setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue)
+{
+	if(_initialized)
+		DebugIf(verbose, _log,"TODO: Set brightness to %i, contrast to %i, saturation to %i, hue to %i", brightness, contrast, saturation, hue);
+}
 
-		if (xioctl(fileDescriptor, VIDIOC_G_PARM, &streamparms) >= 0)
-			framerates.append(streamparms.parm.capture.timeperframe.denominator / streamparms.parm.capture.timeperframe.numerator);
-	}
+void V4L2Grabber::setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold)
+{
+	_noSignalThresholdColor.red   = uint8_t(255*redSignalThreshold);
+	_noSignalThresholdColor.green = uint8_t(255*greenSignalThreshold);
+	_noSignalThresholdColor.blue  = uint8_t(255*blueSignalThreshold);
+	_noSignalCounterThreshold     = qMax(1, noSignalCounterThreshold);
+
+	if(_signalDetectionEnabled)
+		Info(_log, "Signal threshold set to: {%d, %d, %d}", _noSignalThresholdColor.red, _noSignalThresholdColor.green, _noSignalThresholdColor.blue );
+}
+
+void V4L2Grabber::setSignalDetectionOffset(double horizontalMin, double verticalMin, double horizontalMax, double verticalMax)
+{
+	// rainbow 16 stripes 0.47 0.2 0.49 0.8
+	// unicolor: 0.25 0.25 0.75 0.75
+
+	_x_frac_min = horizontalMin;
+	_y_frac_min = verticalMin;
+	_x_frac_max = horizontalMax;
+	_y_frac_max = verticalMax;
+
+	if(_signalDetectionEnabled)
+		Info(_log, "Signal detection area set to: %f,%f x %f,%f", _x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max );
 }
 
 void V4L2Grabber::setSignalDetectionEnable(bool enable)
@@ -1385,7 +1374,8 @@ void V4L2Grabber::setSignalDetectionEnable(bool enable)
 	if (_signalDetectionEnabled != enable)
 	{
 		_signalDetectionEnabled = enable;
-		Info(_log, "Signal detection is now %s", enable ? "enabled" : "disabled");
+		if(_initialized)
+			Info(_log, "Signal detection is now %s", enable ? "enabled" : "disabled");
 	}
 }
 
@@ -1394,47 +1384,24 @@ void V4L2Grabber::setCecDetectionEnable(bool enable)
 	if (_cecDetectionEnabled != enable)
 	{
 		_cecDetectionEnabled = enable;
-		Info(_log, QString("CEC detection is now %1").arg(enable ? "enabled" : "disabled").toLocal8Bit());
+		if(_initialized)
+			Info(_log, QString("CEC detection is now %1").arg(enable ? "enabled" : "disabled").toLocal8Bit());
 	}
 }
 
-bool V4L2Grabber::setDevice(const QString& device)
+bool V4L2Grabber::reload(bool force)
 {
-	if (_deviceName != device)
+	if (_streamNotifier != nullptr && _streamNotifier->isEnabled() && (_reload || force))
 	{
-		(_initialized)
-		? _newDeviceName = device
-		: _deviceName = _newDeviceName = device;
-
-		return true;
+		Info(_log,"Reloading V4L2 Grabber");
+		uninit();
+		_pixelFormat = _pixelFormatConfig;
+		_newDeviceName = _currentDeviceName;
+		_reload = false;
+		return start();
 	}
 
 	return false;
-}
-
-bool V4L2Grabber::setEncoding(QString enc)
-{
-	if(_pixelFormat != parsePixelFormat(enc))
-	{
-		Debug(_log,"Set hardware encoding to: %s", QSTRING_CSTR(enc.toUpper()));
-		_pixelFormat = parsePixelFormat(enc);
-
-		return true;
-	}
-
-	return false;
-}
-
-bool V4L2Grabber::setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue)
-{
-	// TODO
-	return false;
-}
-
-void V4L2Grabber::reloadGrabber()
-{
-	uninit();
-	start();
 }
 
 #if defined(ENABLE_CEC)
@@ -1461,7 +1428,7 @@ QJsonArray V4L2Grabber::discover(const QJsonObject& params)
 {
 	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
 
-	getV4Ldevices();
+	enumVideoCaptureDevices();
 
 	QJsonArray inputsDiscovered;
 	for(auto it = _deviceProperties.begin(); it != _deviceProperties.end(); ++it)
@@ -1517,7 +1484,7 @@ QJsonArray V4L2Grabber::discover(const QJsonObject& params)
 
 				format["format"] = pixelFormatToString(encodingFormat);
 
-				QMultiMap<unsigned int, unsigned int> deviceResolutions = QMultiMap<unsigned int, unsigned int>();
+				QMultiMap<int, int> deviceResolutions = QMultiMap<int, int>();
 				for(auto i = _deviceProperties.begin(); i != _deviceProperties.end(); ++i)
 					if (i.key() == it.key())
 						for (auto y = i.value().inputs.begin(); y != i.value().inputs.end(); y++)
@@ -1568,4 +1535,56 @@ QJsonArray V4L2Grabber::discover(const QJsonObject& params)
 	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
 
 	return inputsDiscovered;
+}
+
+void V4L2Grabber::enumFrameIntervals(QList<int> &framerates, int fileDescriptor, int pixelformat, int width, int height)
+{
+	// collect available frame rates
+	struct v4l2_frmivalenum frmivalenum;
+	CLEAR(frmivalenum);
+
+	frmivalenum.index = 0;
+	frmivalenum.pixel_format = pixelformat;
+	frmivalenum.width = width;
+	frmivalenum.height = height;
+
+	while (xioctl(fileDescriptor, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum) >= 0)
+	{
+		int rate;
+		switch (frmivalenum.type)
+		{
+			case V4L2_FRMSIZE_TYPE_DISCRETE:
+			{
+				if (frmivalenum.discrete.numerator != 0)
+				{
+					rate = frmivalenum.discrete.denominator / frmivalenum.discrete.numerator;
+					if (!framerates.contains(rate))
+						framerates.append(rate);
+				}
+			}
+			break;
+			case V4L2_FRMSIZE_TYPE_CONTINUOUS:
+			case V4L2_FRMSIZE_TYPE_STEPWISE:
+			{
+				if (frmivalenum.stepwise.min.denominator != 0)
+				{
+					rate = frmivalenum.stepwise.min.denominator / frmivalenum.stepwise.min.numerator;
+					if (!framerates.contains(rate))
+						framerates.append(rate);
+				}
+			}
+		}
+		frmivalenum.index++;
+	}
+
+	// If VIDIOC_ENUM_FRAMEINTERVALS fails, try to read the current fps via VIDIOC_G_PARM if possible and insert it into 'framerates'.
+	if (xioctl(fileDescriptor, VIDIOC_ENUM_FRAMESIZES, &frmivalenum) == -1)
+	{
+		struct v4l2_streamparm streamparms;
+		CLEAR(streamparms);
+		streamparms.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+		if (xioctl(fileDescriptor, VIDIOC_G_PARM, &streamparms) >= 0)
+			framerates.append(streamparms.parm.capture.timeperframe.denominator / streamparms.parm.capture.timeperframe.numerator);
+	}
 }

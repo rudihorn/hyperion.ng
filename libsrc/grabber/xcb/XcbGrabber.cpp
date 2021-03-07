@@ -394,7 +394,7 @@ void XcbGrabber::setVideoMode(VideoMode mode)
 	updateScreenDimensions(true);
 }
 
-bool XcbGrabber::setPixelDecimation(unsigned pixelDecimation)
+bool XcbGrabber::setPixelDecimation(int pixelDecimation)
 {
 	if(Grabber::setPixelDecimation(pixelDecimation))
 	{

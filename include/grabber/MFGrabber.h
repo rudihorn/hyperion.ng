@@ -59,7 +59,7 @@ public:
 	~MFGrabber() override;
 
 	void receive_image(const void *frameImageBuffer, int size);
-	void setDevice(QString device);
+	void setDevice(const QString& device);
 	bool setInput(int input) override;
 	bool setWidthHeight(int width, int height) override;
 	void setEncoding(QString enc);

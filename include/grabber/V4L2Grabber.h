@@ -58,8 +58,8 @@ public:
 			QList<VideoStandard> standards = QList<VideoStandard>();
 			struct EncodingProperties
 			{
-				unsigned int width		= 0;
-				unsigned int height		= 0;
+				int width		= 0;
+				int height		= 0;
 				QList<int> framerates	= QList<int>();
 			};
 			QMultiMap<PixelFormat, EncodingProperties> encodingFormats = QMultiMap<PixelFormat, EncodingProperties>();
@@ -70,50 +70,21 @@ public:
 	V4L2Grabber();
 	~V4L2Grabber() override;
 
-	QRectF getSignalDetectionOffset() const
-	{
-		return QRectF(_x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max);
-	}
-
-	bool getSignalDetectionEnabled() const { return _signalDetectionEnabled; }
-	bool getCecDetectionEnabled() const { return _cecDetectionEnabled; }
-
 	int grabFrame(Image<ColorRgb> &);
+	void setDevice(const QString& device);
+	bool setInput(int input) override;
+	bool setWidthHeight(int width, int height) override;
+	void setEncoding(QString enc);
+	void setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
+	void setSignalThreshold(double redSignalThreshold, double greenSignalThreshold, double blueSignalThreshold, int noSignalCounterThreshold = 50);
+	void setSignalDetectionOffset( double verticalMin, double horizontalMin, double verticalMax, double horizontalMax);
+	void setSignalDetectionEnable(bool enable);
+	void setCecDetectionEnable(bool enable);
+	bool reload(bool force = false);
 
-	///
-	/// @brief  overwrite Grabber.h implementation
-	///
-	void setSignalThreshold(
-					double redSignalThreshold,
-					double greenSignalThreshold,
-					double blueSignalThreshold,
-					int noSignalCounterThreshold = 50) override;
+	QRectF getSignalDetectionOffset() const { return QRectF(_x_frac_min, _y_frac_min, _x_frac_max, _y_frac_max); } //used from hyperion-v4l2
 
-	///
-	/// @brief  overwrite Grabber.h implementation
-	///
-	void setSignalDetectionOffset(
-					double verticalMin,
-					double horizontalMin,
-					double verticalMax,
-					double horizontalMax) override;
-	///
-	/// @brief  overwrite Grabber.h implementation
-	///
-	void setSignalDetectionEnable(bool enable) override;
 
-	///
-	/// @brief  overwrite Grabber.h implementation
-	///
-	void setCecDetectionEnable(bool enable) override;
-
-	bool setDevice(const QString& device);
-
-	bool setEncoding(QString enc);
-
-	bool setBrightnessContrastSaturationHue(int brightness, int contrast, int saturation, int hue);
-
-	void reloadGrabber();
 
 	///
 	/// @brief Discover available V4L2 USB devices (for configuration).
@@ -139,7 +110,7 @@ private slots:
 	int read_frame();
 
 private:
-	void getV4Ldevices();
+	void enumVideoCaptureDevices();
 	bool init();
 	void uninit();
 	bool open_device();
@@ -208,15 +179,14 @@ private:
 #endif
 
 private:
-	QString _deviceName, _newDeviceName;
-	std::map<QString, QString> _v4lDevices;
+	QString _currentDeviceName, _newDeviceName;
 	QMap<QString, V4L2Grabber::DeviceProperties> _deviceProperties;
 
 	io_method           _ioMethod;
 	int                 _fileDescriptor;
 	std::vector<buffer> _buffers;
 
-	PixelFormat _pixelFormat;
+	PixelFormat _pixelFormat, _pixelFormatConfig;
 	int         _pixelDecimation;
 	int         _lineLength;
 	int         _frameByteSize;
@@ -233,8 +203,7 @@ private:
 
 	QSocketNotifier *_streamNotifier;
 
-	bool _initialized;
-	bool _deviceAutoDiscoverEnabled;
+	bool _initialized, _reload;
 
 protected:
 	void enumFrameIntervals(QList<int> &framerates, int fileDescriptor, int pixelformat, int width, int height);

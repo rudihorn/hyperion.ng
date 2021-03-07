@@ -7,10 +7,12 @@ namespace { const bool verbose = false; }
 MFGrabber::MFGrabber()
 	: Grabber("V4L2:MEDIA_FOUNDATION")
 	, _currentDeviceName("none")
-	, _newDeviceName("auto")
+	, _newDeviceName("none")
 	, _hr(S_FALSE)
 	, _sourceReader(nullptr)
 	, _sourceReaderCB(nullptr)
+	, _pixelFormat(PixelFormat::NO_CHANGE)
+	, _pixelFormatConfig(PixelFormat::NO_CHANGE)
 	, _lineLength(-1)
 	, _frameByteSize(-1)
 	, _noSignalCounterThreshold(40)
@@ -85,9 +87,6 @@ void MFGrabber::stop()
 		_initialized = false;
 		_threadManager.stop();
 		uninit_device();
-		// restore pixelformat to configs value if it is not 'none' or device name has not changed
-		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
-			_pixelFormat = _pixelFormatConfig;
 		_deviceProperties.clear();
 		Info(_log, "Stopped");
 	}
@@ -113,10 +112,9 @@ bool MFGrabber::init()
 			return false;
 		}
 
-		QList<DeviceProperties> dev = _deviceProperties[_currentDeviceName];
-
 		Debug(_log,  "Searching for %s %d x %d @ %d fps (%s)", QSTRING_CSTR(_currentDeviceName), _width, _height,_fps, QSTRING_CSTR(pixelFormatToString(_pixelFormat)));
 
+		QList<DeviceProperties> dev = _deviceProperties[_currentDeviceName];
 		for( int i = 0; i < dev.count() && deviceIndex < 0; ++i )
 		{
 			if(dev[i].width != _width || dev[i].height != _height || dev[i].fps != _fps || dev[i].pf != _pixelFormat)
@@ -144,7 +142,7 @@ void MFGrabber::uninit()
 	// stop if the grabber was not stopped
 	if(_initialized)
 	{
-		Debug(_log,"uninit grabber: %s", QSTRING_CSTR(_newDeviceName));
+		Debug(_log,"Uninit grabber: %s", QSTRING_CSTR(_newDeviceName));
 		stop();
 	}
 }
@@ -603,7 +601,7 @@ void MFGrabber::checkSignalDetectionEnabled(Image<ColorRgb> image)
 		emit newFrame(image);
 }
 
-void MFGrabber::setDevice(QString device)
+void MFGrabber::setDevice(const QString& device)
 {
 	if(_currentDeviceName != device)
 	{
@@ -706,11 +704,7 @@ bool MFGrabber::reload(bool force)
 	{
 		Info(_log,"Reloading Media Foundation Grabber");
 		uninit();
-
-		// restore pixelformat to configs value if it is not 'none' or device name has not changed
-		if(_pixelFormatConfig != PixelFormat::NO_CHANGE || _newDeviceName != _currentDeviceName)
-			_pixelFormat = _pixelFormatConfig;
-
+		_pixelFormat = _pixelFormatConfig;
 		_newDeviceName = _currentDeviceName;
 		_reload = false;
 		return start();

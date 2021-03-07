@@ -301,7 +301,7 @@ void X11Grabber::setVideoMode(VideoMode mode)
 	updateScreenDimensions(true);
 }
 
-bool X11Grabber::setPixelDecimation(unsigned pixelDecimation)
+bool X11Grabber::setPixelDecimation(int pixelDecimation)
 {
 	if(Grabber::setPixelDecimation(pixelDecimation))
 	{

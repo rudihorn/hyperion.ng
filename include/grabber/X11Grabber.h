@@ -2,7 +2,13 @@
 #include <QAbstractEventDispatcher>
 #include <QAbstractNativeEventFilter>
 #include <QCoreApplication>
+
+// QT includes
 #include <QObject>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+
 
 // Hyperion-utils includes
 #include <utils/ColorRgb.h>
@@ -60,6 +66,15 @@ public:
 	/// @param  cropBottom  Bottom pixel crop
 	///
 	void setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom) override;
+
+	///
+	/// @brief Discover X11 screens available (for configuration).
+	///
+	/// @param[in] params Parameters used to overwrite discovery default behaviour
+	///
+	/// @return A JSON structure holding a list of devices found
+	///
+	QJsonObject discover(const QJsonObject& params);
 
 protected:
 	bool nativeEventFilter(const QByteArray & eventType, void * message, long int * result) override;

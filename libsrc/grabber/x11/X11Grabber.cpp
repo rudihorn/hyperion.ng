@@ -4,6 +4,11 @@
 #include <xcb/randr.h>
 #include <xcb/xcb_event.h>
 
+// Constants
+namespace {
+	const bool verbose = true;
+} //End of constants
+
 X11Grabber::X11Grabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation)
 	: Grabber("X11GRABBER", 0, 0, cropLeft, cropRight, cropTop, cropBottom)
 	, _x11Display(nullptr)
@@ -334,3 +339,87 @@ bool X11Grabber::nativeEventFilter(const QByteArray & eventType, void * message,
 
 	return false;
 }
+
+QJsonObject X11Grabber::discover(const QJsonObject& params)
+{
+	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	Display* display = XOpenDisplay(NULL);
+
+	QJsonObject inputsDiscovered;
+	inputsDiscovered["device"] = "x11";
+	inputsDiscovered["device_name"] = "X11";
+	inputsDiscovered["type"] = "screen";
+
+	QJsonArray video_inputs;
+
+	if (display != nullptr)
+	{
+		QJsonArray fps = { 1, 5, 10, 15, 20, 25, 30, 40, 50, 60 };
+
+		// Iterate through all X screens
+		for (int i = 0; i < XScreenCount(display); ++i)
+		{
+			// Get the screen's resources
+			XRRScreenResources* screenRes = XRRGetScreenResources(display, RootWindow(display, i));
+
+			// Check all outputs for a connected display
+			for(int j = 0; j < screenRes->noutput; j++)
+			{
+				// Get the output descriptor and check if there is a display connected
+				XRROutputInfo* outputInfo = XRRGetOutputInfo(display, screenRes, screenRes->outputs[j]);
+
+				if(outputInfo == nullptr || outputInfo->crtc == 0 || outputInfo->connection == RR_Disconnected)
+				{
+					XRRFreeOutputInfo(outputInfo);
+					continue;
+				}
+
+				XRRCrtcInfo* crtcInfo = XRRGetCrtcInfo(display, screenRes, outputInfo->crtc);
+				if(crtcInfo == nullptr)
+				{
+					XRRFreeCrtcInfo(crtcInfo);
+					XRRFreeOutputInfo(outputInfo);
+					continue;
+				}
+
+				QJsonObject in;
+
+				in["name"] = outputInfo->name;
+				in["inputIdx"] = i;
+
+				QJsonArray formats, resolutionArray;
+				QJsonObject format, resolution;
+
+				resolution["width"] = int(crtcInfo->width);
+				resolution["height"] = int(crtcInfo->height);
+				resolution["fps"] = fps;
+
+				resolutionArray.append(resolution);
+
+				format["resolutions"] = resolutionArray;
+				formats.append(format);
+
+				in["formats"] = formats;
+				video_inputs.append(in);
+
+				XRRFreeCrtcInfo(crtcInfo);
+				XRRFreeOutputInfo(outputInfo);
+			}
+
+			XRRFreeScreenResources(screenRes);
+		}
+	}
+	else
+	{
+		DebugIf(verbose, _log, "Unable to open display!");
+	}
+
+	inputsDiscovered["video_inputs"] = video_inputs;
+
+	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
+
+	return inputsDiscovered;
+
+}
+

@@ -27,6 +27,10 @@
 	#include <grabber/V4L2Grabber.h>
 #endif
 
+#if defined(ENABLE_X11)
+	#include <grabber/X11Grabber.h>
+#endif
+
 #include <utils/jsonschema/QJsonFactory.h>
 #include <utils/jsonschema/QJsonSchemaChecker.h>
 #include <HyperionConfig.h>
@@ -1469,15 +1473,20 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 				Debug(_log, "sourceType: [%s]", QSTRING_CSTR(sourceType));
 				if (sourceType == "screen")
 				{
-					QJsonObject device;
+					QJsonObject device, params;
 
 					#ifdef ENABLE_QT
-					QtGrabber* grabber = new QtGrabber();
-
-					QJsonObject params;
-					device = grabber->discover(params);
+					QtGrabber* qtgrabber = new QtGrabber();
+					device = qtgrabber->discover(params);
 					videoInputs.append(device);
-					delete grabber;
+					delete qtgrabber;
+					#endif
+
+					#ifdef ENABLE_X11
+					X11Grabber* x11grabber = new X11Grabber(0, 0, 0, 0, 0);
+					device = x11grabber->discover(params);
+					videoInputs.append(device);
+					delete x11grabber;
 					#endif
 				}
 

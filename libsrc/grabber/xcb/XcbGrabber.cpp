@@ -41,6 +41,7 @@ XcbGrabber::XcbGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom,
 	, _XcbRandRAvailable{}
 	, _XcbShmAvailable{}
 	, _XcbShmPixmapAvailable{}
+	, _isWayland (false)
 	, _logger{}
 	, _shmData{}
 	, _XcbRandREventBase{-1}
@@ -188,45 +189,57 @@ void XcbGrabber::setupShm()
 
 bool XcbGrabber::open()
 {
-	bool rc = true;
-	_connection = xcb_connect(nullptr, &_screen_num);
+	bool rc = false;
 
-	int ret = xcb_connection_has_error(_connection);
-	if (ret != 0)
+	if (getenv("WAYLAND_DISPLAY") != nullptr)
 	{
-		Debug(_logger, "Cannot open display, error %d", ret);
-		rc = false;
+		_isWayland = true;
 	}
 	else
 	{
-		const xcb_setup_t * setup = xcb_get_setup(_connection);
-		_screen = getScreen(setup, _screen_num);
-		if ( _screen == nullptr)
+		_connection = xcb_connect(nullptr, &_screen_num);
+
+		int ret = xcb_connection_has_error(_connection);
+		if (ret != 0)
 		{
-			rc = false;
+			Debug(_logger, "Cannot open display, error %d", ret);
+		}
+		else
+		{
+			const xcb_setup_t * setup = xcb_get_setup(_connection);
+			_screen = getScreen(setup, _screen_num);
+			if ( _screen != nullptr)
+			{
+				rc = true;
+			}
 		}
 	}
 
 	return rc;
 }
 
-bool XcbGrabber::Setup()
+bool XcbGrabber::setupDisplay()
 {
 	bool result = false;
 
 	if ( ! open() )
 	{
-		if (getenv("DISPLAY") != nullptr)
+		if ( _isWayland  )
 		{
-			Error(_log, "Unable to open display [%s], screen %d does not exist", getenv("DISPLAY"), _screen_num);
+			Error(_log, "Grabber does not work under Wayland!");
 		}
 		else
 		{
-			Error(_log, "DISPLAY environment variable not set");
+			if (getenv("DISPLAY") != nullptr)
+			{
+				Error(_log, "Unable to open display [%s], screen %d does not exist", getenv("DISPLAY"), _screen_num);
+			}
+			else
+			{
+				Error(_log, "DISPLAY environment variable not set");
+			}
+			freeResources();
 		}
-
-		freeResources();
-		return false;
 	}
 	else
 	{
@@ -558,8 +571,12 @@ QJsonObject XcbGrabber::discover(const QJsonObject& params)
 				}
 				++i;
 			}
+
+			if ( !video_inputs.isEmpty() )
+			{
+				inputsDiscovered["video_inputs"] = video_inputs;
+			}
 		}
-		inputsDiscovered["video_inputs"] = video_inputs;
 	}
 	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
 

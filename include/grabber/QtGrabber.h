@@ -63,6 +63,12 @@ public:
 	QJsonObject discover(const QJsonObject& params);
 
 	///
+	/// @brief Setup a new capture display, will free the previous one
+	/// @return True on success, false if no display is found
+	///
+	bool setupDisplay();
+
+	///
 	/// @brief Opens the input device.
 	///
 	/// @return Zero, on success (i.e. device is ready), else negative
@@ -77,11 +83,7 @@ private slots:
 	void geometryChanged(const QRect &geo);
 
 private:
-	///
-	/// @brief Setup a new capture display, will free the previous one
-	/// @return True on success, false if no display is found
-	///
-	bool setupDisplay();
+
 
 	///
 	/// @brief Is called whenever we need new screen dimension calculations based on window geometry
@@ -105,7 +107,10 @@ private:
 	int _src_y;
 	int _src_x_max;
 	int _src_y_max;
-	QScreen* _screen;
+	bool _isWayland;
 
+	QScreen* _screen;
 	bool _isVirtual;
+
+	Logger * _logger;
 };

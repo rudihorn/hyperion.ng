@@ -30,7 +30,7 @@ public:
 	~XcbGrabber() override;
 
 	bool open();
-	bool Setup();
+	bool setupDisplay();
 
 	int grabFrame(Image<ColorRgb> & image, bool forceUpdate = false);
 	int updateScreenDimensions(bool force = false);
@@ -80,6 +80,8 @@ private:
 	bool _XcbRandRAvailable;
 	bool _XcbShmAvailable;
 	bool _XcbShmPixmapAvailable;
+	bool _isWayland;
+
 	Logger * _logger;
 
 	uint8_t * _shmData;

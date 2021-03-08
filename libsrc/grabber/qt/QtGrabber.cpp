@@ -26,9 +26,11 @@ QtGrabber::QtGrabber(int cropLeft, int cropRight, int cropTop, int cropBottom, i
 	, _src_y(0)
 	, _src_x_max(0)
 	, _src_y_max(0)
+	, _isWayland(false)
 	, _screen(nullptr)
 	, _isVirtual(false)
 {
+	_logger = Logger::getInstance("Qt");
 	_useImageResampler = false;
 }
 
@@ -44,71 +46,95 @@ void QtGrabber::freeResources()
 
 bool QtGrabber::open()
 {
-	return true;
+	bool rc = false;
+
+	if (getenv("WAYLAND_DISPLAY") != nullptr)
+	{
+		_isWayland = true;
+	}
+	else
+	{
+		rc = true;
+	}
+	return rc;
 }
 
 bool QtGrabber::setupDisplay()
 {
-	// cleanup last screen
-	freeResources();
-	_numberOfSDisplays = 0;
-
-	QScreen* primary = QGuiApplication::primaryScreen();
-	QList<QScreen *> screens = QGuiApplication::screens();
-	// inject main screen at 0, if not nullptr
-	if(primary != nullptr)
+	bool result = false;
+	if ( ! open() )
 	{
-		screens.prepend(primary);
-		// remove last main screen if twice in list
-		if(screens.lastIndexOf(primary) > 0)
+		if ( _isWayland  )
 		{
-			screens.removeAt(screens.lastIndexOf(primary));
+			Error(_log, "Grabber does not work under Wayland!");
 		}
 	}
-
-	if(screens.isEmpty())
+	else
 	{
-		Error(_log, "No displays found to capture from!");
-		return false;
-	}
+		// cleanup last screen
+		freeResources();
+		_numberOfSDisplays = 0;
 
-	_numberOfSDisplays = screens.size();
-
-	Info(_log,"Available Displays:");
-	int index = 0;
-	for(auto * screen : qAsConst(screens))
-	{
-		const QRect geo = screen->geometry();
-		Info(_log,"Display %d: Name:%s Geometry: (L,T,R,B) %d,%d,%d,%d Depth:%dbit", index, QSTRING_CSTR(screen->name()), geo.left(), geo.top() ,geo.right(), geo.bottom(), screen->depth());
-		++index;
-	}
-
-	_isVirtual = false;
-	// be sure the index is available
-	if (_display > _numberOfSDisplays - 1 )
-	{
-
-		if (screens.at(0)->size() != screens.at(0)->virtualSize())
+		QScreen* primary = QGuiApplication::primaryScreen();
+		QList<QScreen *> screens = QGuiApplication::screens();
+		// inject main screen at 0, if not nullptr
+		if(primary != nullptr)
 		{
-			Info(_log, "Using virtual display across all screens");
-			_isVirtual = true;
-			_display = 0;
+			screens.prepend(primary);
+			// remove last main screen if twice in list
+			if(screens.lastIndexOf(primary) > 0)
+			{
+				screens.removeAt(screens.lastIndexOf(primary));
+			}
+		}
 
+		if(screens.isEmpty())
+		{
+			Error(_log, "No displays found to capture from!");
+			result =  false;
 		}
 		else
 		{
-			Info(_log, "The requested display index '%d' is not available, falling back to display 0", _display);
-			_display = 0;
+			_numberOfSDisplays = screens.size();
+
+			Info(_log,"Available Displays:");
+			int index = 0;
+			for(auto * screen : qAsConst(screens))
+			{
+				const QRect geo = screen->geometry();
+				Info(_log,"Display %d: Name:%s Geometry: (L,T,R,B) %d,%d,%d,%d Depth:%dbit", index, QSTRING_CSTR(screen->name()), geo.left(), geo.top() ,geo.right(), geo.bottom(), screen->depth());
+				++index;
+			}
+
+			_isVirtual = false;
+			// be sure the index is available
+			if (_display > _numberOfSDisplays - 1 )
+			{
+
+				if (screens.at(0)->size() != screens.at(0)->virtualSize())
+				{
+					Info(_log, "Using virtual display across all screens");
+					_isVirtual = true;
+					_display = 0;
+
+				}
+				else
+				{
+					Info(_log, "The requested display index '%d' is not available, falling back to display 0", _display);
+					_display = 0;
+				}
+			}
+
+			// init the requested display
+			_screen = screens.at(_display);
+			connect(_screen, &QScreen::geometryChanged, this, &QtGrabber::geometryChanged);
+			updateScreenDimensions(true);
+
+			Info(_log,"Initialized display %d", _display);
+			result =  true;
 		}
 	}
-
-	// init the requested display
-	_screen = screens.at(_display);
-	connect(_screen, &QScreen::geometryChanged, this, &QtGrabber::geometryChanged);
-	updateScreenDimensions(true);
-
-	Info(_log,"Initialized display %d", _display);
-	return true;
+	return result;
 }
 
 void QtGrabber::geometryChanged(const QRect &geo)
@@ -127,7 +153,8 @@ int QtGrabber::grabFrame(Image<ColorRgb> & image)
 	if(_screen == nullptr)
 	{
 		// reinit, this will disable capture on failure
-		setEnabled(setupDisplay());
+		bool result = setupDisplay();
+		setEnabled(result);
 		return -1;
 	}
 
@@ -248,88 +275,89 @@ QJsonObject QtGrabber::discover(const QJsonObject& params)
 {
 	DebugIf(verbose, _log, "params: [%s]", QString(QJsonDocument(params).toJson(QJsonDocument::Compact)).toUtf8().constData());
 
-	QList<QScreen*> screens = QGuiApplication::screens();
-
 	QJsonObject inputsDiscovered;
-	inputsDiscovered["device"] = "qt";
-	inputsDiscovered["device_name"] = "QT";
-	inputsDiscovered["type"] = "screen";
-
-	QJsonArray video_inputs;
-
-	if (!screens.isEmpty())
+	if ( open() )
 	{
-		QJsonArray fps = { 1, 5, 10, 15, 20, 25, 30, 40, 50, 60 };
+		QList<QScreen*> screens = QGuiApplication::screens();
 
-		for (int i = 0; i < screens.size(); ++i)
+		inputsDiscovered["device"] = "qt";
+		inputsDiscovered["device_name"] = "QT";
+		inputsDiscovered["type"] = "screen";
+
+		QJsonArray video_inputs;
+
+		if (!screens.isEmpty())
 		{
-			QJsonObject in;
+			QJsonArray fps = { 1, 5, 10, 15, 20, 25, 30, 40, 50, 60 };
 
-			QString name = screens.at(i)->name();
-
-			int pos = name.lastIndexOf('\\');
-			if (pos != -1)
+			for (int i = 0; i < screens.size(); ++i)
 			{
-				name = name.right(name.length()-pos-1);
+				QJsonObject in;
+
+				QString name = screens.at(i)->name();
+
+				int pos = name.lastIndexOf('\\');
+				if (pos != -1)
+				{
+					name = name.right(name.length()-pos-1);
+				}
+
+				in["name"] = name;
+				in["inputIdx"] = i;
+
+				QJsonArray formats;
+				QJsonObject format;
+
+				QJsonArray resolutionArray;
+
+				QJsonObject resolution;
+
+				resolution["width"] = screens.at(i)->size().width();
+				resolution["height"] = screens.at(i)->size().height();
+				resolution["fps"] = fps;
+
+				resolutionArray.append(resolution);
+
+				format["resolutions"] = resolutionArray;
+				formats.append(format);
+
+				in["formats"] = formats;
+				video_inputs.append(in);
 			}
 
-			in["name"] = name;
-			in["inputIdx"] = i;
+			if (screens.at(0)->size() != screens.at(0)->virtualSize())
+			{
+				QJsonObject in;
+				in["name"] = "All Displays";
+				in["inputIdx"] = screens.size();
+				in["virtual"] = true;
 
-			QJsonArray formats;
-			QJsonObject format;
+				QJsonArray formats;
+				QJsonObject format;
 
-			QJsonArray resolutionArray;
+				QJsonArray resolutionArray;
 
-			QJsonObject resolution;
+				QJsonObject resolution;
 
-			resolution["width"] = screens.at(i)->size().width();
-			resolution["height"] = screens.at(i)->size().height();
-			resolution["fps"] = fps;
+				resolution["width"] = screens.at(0)->virtualSize().width();
+				resolution["height"] = screens.at(0)->virtualSize().height();
+				resolution["fps"] = fps;
 
-			resolutionArray.append(resolution);
+				resolutionArray.append(resolution);
 
-			format["resolutions"] = resolutionArray;
-			formats.append(format);
+				format["resolutions"] = resolutionArray;
+				formats.append(format);
 
-			in["formats"] = formats;
-			video_inputs.append(in);
+				in["formats"] = formats;
+				video_inputs.append(in);
+			}
+			inputsDiscovered["video_inputs"] = video_inputs;
 		}
-
-		if (screens.at(0)->size() != screens.at(0)->virtualSize())
+		else
 		{
-			QJsonObject in;
-			in["name"] = "All Displays";
-			in["inputIdx"] = screens.size();
-			in["virtual"] = true;
-
-			QJsonArray formats;
-			QJsonObject format;
-
-			QJsonArray resolutionArray;
-
-			QJsonObject resolution;
-
-			resolution["width"] = screens.at(0)->virtualSize().width();
-			resolution["height"] = screens.at(0)->virtualSize().height();
-			resolution["fps"] = fps;
-
-			resolutionArray.append(resolution);
-
-			format["resolutions"] = resolutionArray;
-			formats.append(format);
-
-			in["formats"] = formats;
-			video_inputs.append(in);
+			DebugIf(verbose, _log, "No displays found to capture from!");
 		}
 	}
-	else
-	{
-		DebugIf(verbose, _log, "No displays found to capture from!");
-	}
-
-	inputsDiscovered["video_inputs"] = video_inputs;
-
 	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
 
 	return inputsDiscovered;

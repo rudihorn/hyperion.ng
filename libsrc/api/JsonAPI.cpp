@@ -1476,26 +1476,36 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 				Debug(_log, "sourceType: [%s]", QSTRING_CSTR(sourceType));
 				if (sourceType == "screen")
 				{
-					QJsonObject device, params;
+					QJsonObject params;
 
+					QJsonObject device;
 					#ifdef ENABLE_QT
 					QtGrabber* qtgrabber = new QtGrabber();
 					device = qtgrabber->discover(params);
-					videoInputs.append(device);
+					if (!device.isEmpty() )
+					{
+						videoInputs.append(device);
+					}
 					delete qtgrabber;
 					#endif
 
 					#ifdef ENABLE_X11
 					X11Grabber* x11Grabber = new X11Grabber();
 					device = x11Grabber->discover(params);
-					videoInputs.append(device);
+					if (!device.isEmpty() )
+					{
+						videoInputs.append(device);
+					}
 					delete x11Grabber;
 					#endif
 
 					#ifdef ENABLE_XCB
 					XcbGrabber* xcbGrabber = new XcbGrabber();
 					device = xcbGrabber->discover(params);
-					videoInputs.append(device);
+					if (!device.isEmpty() )
+					{
+						videoInputs.append(device);
+					}
 					delete xcbGrabber;
 					#endif
 				}

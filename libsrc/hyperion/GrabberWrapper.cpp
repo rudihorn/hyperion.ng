@@ -44,18 +44,19 @@ GrabberWrapper::~GrabberWrapper()
 
 bool GrabberWrapper::start()
 {
-	Debug(_log, "Grabber start() - open()");
-
-	open();
-
-	if (!_timer->isActive())
+	bool rc = false;
+	if ( open() )
 	{
-		// Start the timer with the pre configured interval
-		Debug(_log,"Grabber start()");
-		_timer->start();
-	}
+		if (!_timer->isActive())
+		{
+			// Start the timer with the pre configured interval
+			Debug(_log,"Grabber start()");
+			_timer->start();
+		}
 
-	return _timer->isActive();
+		rc = _timer->isActive();
+	}
+	return rc;
 }
 
 void GrabberWrapper::stop()

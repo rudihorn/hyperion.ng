@@ -12,9 +12,6 @@ namespace {
 X11Grabber::X11Grabber(int cropLeft, int cropRight, int cropTop, int cropBottom, int pixelDecimation)
 	: Grabber("X11GRABBER", 0, 0, cropLeft, cropRight, cropTop, cropBottom)
 	, _x11Display(nullptr)
-	, _XShmAvailable(false)
-	, _XRenderAvailable(false)
-	, _XRandRAvailable(false)
 	, _xImage(nullptr)
 	, _pixmap(None)
 	, _srcFormat(nullptr)
@@ -26,8 +23,15 @@ X11Grabber::X11Grabber(int cropLeft, int cropRight, int cropTop, int cropBottom,
 	, _calculatedHeight(0)
 	, _src_x(cropLeft)
 	, _src_y(cropTop)
+	, _XShmAvailable(false)
+	, _XRenderAvailable(false)
+	, _XRandRAvailable(false)
+	, _isWayland (false)
+	, _logger{}
 	, _image(0,0)
 {
+	_logger = Logger::getInstance("X11");
+
 	_useImageResampler = false;
 	_imageResampler.setCropping(0, 0, 0, 0); // cropping is performed by XRender, XShmGetImage or XGetImage
 	memset(&_pictAttr, 0, sizeof(_pictAttr));
@@ -117,27 +121,42 @@ void X11Grabber::setupResources()
 bool X11Grabber::open()
 {
 	bool rc = false;
-	_x11Display = XOpenDisplay(nullptr);
-	if (_x11Display != nullptr)
+
+	if (getenv("WAYLAND_DISPLAY") != nullptr)
 	{
-		rc = true;
+		_isWayland = true;
+	}
+	else
+	{
+		_x11Display = XOpenDisplay(nullptr);
+		if (_x11Display != nullptr)
+		{
+			rc = true;
+		}
 	}
 	return rc;
 }
 
-bool X11Grabber::Setup()
+bool X11Grabber::setupDisplay()
 {
 	bool result = false;
 
-	if ( !open() )
+	if ( ! open() )
 	{
-		if (getenv("DISPLAY") != nullptr)
+		if ( _isWayland  )
 		{
-			Error(_log, "Unable to open display [%s]",getenv("DISPLAY"));
+			Error(_log, "Grabber does not work under Wayland!");
 		}
 		else
 		{
-			Error(_log, "DISPLAY environment variable not set");
+			if (getenv("DISPLAY") != nullptr)
+			{
+				Error(_log, "Unable to open display [%s]",getenv("DISPLAY"));
+			}
+			else
+			{
+				Error(_log, "DISPLAY environment variable not set");
+			}
 		}
 	}
 	else
@@ -151,6 +170,13 @@ bool X11Grabber::Setup()
 		_XShmAvailable = XShmQueryExtension(_x11Display);
 		XShmQueryVersion(_x11Display, &dummy, &dummy, &pixmaps_supported);
 		_XShmPixmapAvailable = pixmaps_supported && XShmPixmapFormat(_x11Display) == ZPixmap;
+
+		Info(_log, QString("XRandR=[%1] XRender=[%2] XShm=[%3] XPixmap=[%4]")
+			 .arg(_XRandRAvailable     ? "available" : "unavailable")
+			 .arg(_XRenderAvailable    ? "available" : "unavailable")
+			 .arg(_XShmAvailable       ? "available" : "unavailable")
+			 .arg(_XShmPixmapAvailable ? "available" : "unavailable")
+			 .toStdString().c_str());
 
 		result = (updateScreenDimensions(true) >=0);
 		ErrorIf(!result, _log, "X11 Grabber start failed");
@@ -424,8 +450,12 @@ QJsonObject X11Grabber::discover(const QJsonObject& params)
 					video_inputs.append(in);
 				}
 			}
+
+			if ( !video_inputs.isEmpty() )
+			{
+				inputsDiscovered["video_inputs"] = video_inputs;
+			}
 		}
-		inputsDiscovered["video_inputs"] = video_inputs;
 	}
 	DebugIf(verbose, _log, "device: [%s]", QString(QJsonDocument(inputsDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
 

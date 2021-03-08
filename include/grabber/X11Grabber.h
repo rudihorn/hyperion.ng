@@ -32,7 +32,7 @@ public:
 
 	bool open();
 
-	bool Setup();
+	bool setupDisplay();
 
 	///
 	/// Captures a single snapshot of the display and writes the data to the given image. The
@@ -83,13 +83,13 @@ protected:
 
 private:
 
+	void freeResources();
+	void setupResources();
 
 	/// Reference to the X11 display (nullptr if not opened)
 	Display* _x11Display;
 	Window _window;
 	XWindowAttributes _windowAttr;
-
-	bool _XShmAvailable, _XShmPixmapAvailable, _XRenderAvailable,  _XRandRAvailable;
 
 	XImage* _xImage;
 	XShmSegmentInfo _shminfo;
@@ -111,8 +111,13 @@ private:
 	unsigned _src_x;
 	unsigned _src_y;
 
-	Image<ColorRgb> _image;
+	bool _XShmAvailable;
+	bool _XShmPixmapAvailable;
+	bool _XRenderAvailable;
+	bool _XRandRAvailable;
+	bool _isWayland;
 
-	void freeResources();
-	void setupResources();
+	Logger * _logger;
+
+	Image<ColorRgb> _image;
 };

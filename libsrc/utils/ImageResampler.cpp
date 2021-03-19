@@ -27,7 +27,7 @@ void ImageResampler::processImage(const uint8_t * data, int width, int height, i
 	int cropRight  = _cropRight;
 	int cropBottom = _cropBottom;
 	int xDestFlip = 0, yDestFlip = 0;
-	int uOffset, vOffset;
+	int uOffset = 0, vOffset = 0;
 
 	// handle 3D mode
 	switch (_videoMode)

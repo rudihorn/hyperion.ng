@@ -80,7 +80,7 @@ public slots:
 	bool prepare();
 	bool start();
 	void stop();
-	void newThreadFrame(unsigned int _workerIndex, const Image<ColorRgb>& image,unsigned int sourceCount);
+	void newThreadFrame(Image<ColorRgb> image);
 
 signals:
 	void newFrame(const Image<ColorRgb> & image);
@@ -94,7 +94,6 @@ private:
 	void enumVideoCaptureDevices();
 	void start_capturing();
 	void process_image(const void *frameImageBuffer, int size);
-	void checkSignalDetectionEnabled(Image<ColorRgb> image);
 
 	QString										_currentDeviceName, _newDeviceName;
 	QMap<QString, QList<DeviceProperties>>		_deviceProperties;

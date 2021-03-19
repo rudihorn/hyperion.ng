@@ -78,21 +78,21 @@ public:
 
 	// IMFSourceReaderCallback methods
 	STDMETHODIMP OnReadSample(HRESULT hrStatus, DWORD /*dwStreamIndex*/,
-		DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample *pSample)
+		DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
 		EnterCriticalSection(&_critsec);
 
-        if(dwStreamFlags & MF_SOURCE_READERF_STREAMTICK)
+		if (dwStreamFlags & MF_SOURCE_READERF_STREAMTICK)
 		{
 			Debug(_grabber->_log, "Skipping stream gap");
 			LeaveCriticalSection(&_critsec);
 			_grabber->_sourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, NULL, NULL, NULL, NULL);
 			return S_OK;
-        }
+		}
 
 		if (dwStreamFlags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
 		{
-			IMFMediaType *type = nullptr;
+			IMFMediaType* type = nullptr;
 			GUID format;
 			_grabber->_sourceReader->GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, MF_SOURCE_READER_CURRENT_TYPE_INDEX, &type);
 			type->GetGUID(MF_MT_SUBTYPE, &format);
@@ -103,7 +103,7 @@ public:
 
 		if (dwStreamFlags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
 		{
-			IMFMediaType *type = nullptr;
+			IMFMediaType* type = nullptr;
 			GUID format;
 			_grabber->_sourceReader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, &type);
 			type->GetGUID(MF_MT_SUBTYPE, &format);
@@ -129,7 +129,7 @@ public:
 			goto done;
 		}
 
-		if(_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::NO_CHANGE)
+		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::NO_CHANGE)
 			pSample = TransformSample(_transform, pSample);
 
 		_hrStatus = pSample->ConvertToContiguousBuffer(&buffer);
@@ -150,7 +150,7 @@ public:
 			goto done;
 		}
 
-		_grabber->receive_image(data,currentLength);
+		_grabber->receive_image(data, currentLength);
 
 		_hrStatus = buffer->Unlock();
 		if (FAILED(_hrStatus))
@@ -161,6 +161,9 @@ public:
 
 	done:
 		SAFE_RELEASE(buffer);
+
+		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::NO_CHANGE)
+			SAFE_RELEASE(pSample);
 
 		if (MF_SOURCE_READERF_ENDOFSTREAM & dwStreamFlags)
 			_bEOS = TRUE; // Reached the end of the stream.
@@ -176,7 +179,7 @@ public:
 			return S_OK;
 
 		// Variable declaration
-		IMFMediaType *output = nullptr;
+		IMFMediaType* output = nullptr;
 		DWORD mftStatus = 0;
 		QString error = "";
 
@@ -269,7 +272,7 @@ public:
 		return _hrStatus;
 	}
 
-	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *) { return S_OK; }
+	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent*) { return S_OK; }
 	STDMETHODIMP OnFlush(DWORD) { return S_OK; }
 
 private:
@@ -288,7 +291,7 @@ private:
 	{
 		IMFSample* result = nullptr;
 		IMFMediaBuffer* out_buffer = nullptr;
-		MFT_OUTPUT_DATA_BUFFER outputDataBuffer = {0};
+		MFT_OUTPUT_DATA_BUFFER outputDataBuffer = { 0 };
 
 		// Process the input sample
 		_hrStatus = transform->ProcessInput(0, in_sample, 0);
@@ -366,9 +369,9 @@ private:
 private:
 	long				_nRefCount;
 	CRITICAL_SECTION	_critsec;
-	MFGrabber*			_grabber;
+	MFGrabber* _grabber;
 	BOOL				_bEOS;
 	HRESULT				_hrStatus;
-	IMFTransform*		_transform;
+	IMFTransform* _transform;
 	PixelFormat			_pixelformat;
 };

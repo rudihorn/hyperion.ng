@@ -3,17 +3,14 @@
 volatile bool MFThread::_isActive = false;
 
 MFThread::MFThread()
-	: _isBusy(false)
-	, _semaphore(1)
-	, _localData(nullptr)
+	: _localData(nullptr)
 	, _scalingFactorsCount(0)
 	, _scalingFactors(nullptr)
 	, _transform(nullptr)
 	, _decompress(nullptr)
 	, _xform(nullptr)
 	, _imageResampler()
-{
-}
+{}
 
 MFThread::~MFThread()
 {
@@ -28,12 +25,11 @@ MFThread::~MFThread()
 }
 
 void MFThread::setup(
-	unsigned int threadIndex, PixelFormat pixelFormat, uint8_t* sharedData,
+	PixelFormat pixelFormat, uint8_t* sharedData,
 	int size, int width, int height, int lineLength,
 	int subsamp, unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
-	VideoMode videoMode, FlipMode flipMode, int currentFrame, int pixelDecimation)
+	VideoMode videoMode, FlipMode flipMode, int pixelDecimation)
 {
-	_threadIndex = threadIndex;
 	_lineLength = lineLength;
 	_pixelFormat = pixelFormat;
 	_size = (unsigned long) size;
@@ -45,7 +41,6 @@ void MFThread::setup(
 	_cropBottom = cropBottom;
 	_cropRight = cropRight;
 	_flipMode = flipMode;
-	_currentFrame = currentFrame;
 	_pixelDecimation = pixelDecimation;
 
 	_imageResampler.setVideoMode(videoMode);
@@ -63,17 +58,8 @@ void MFThread::setup(
 
 void MFThread::run()
 {
-	startOnThisThread();
-}
-
-void MFThread::startThread()
-{
-	startOnThisThread();
-}
-
-void MFThread::startOnThisThread()
-{
-	if (_isActive && _width > 0 && _height > 0)
+	_isActive = true;
+	if (_width > 0 && _height > 0)
 	{
 		if (_pixelFormat == PixelFormat::MJPEG)
 		{
@@ -95,31 +81,10 @@ void MFThread::startOnThisThread()
 
 			Image<ColorRgb> image = Image<ColorRgb>();
 			_imageResampler.processImage(_localData, _width, _height, _lineLength, PixelFormat::BGR24, image);
-			emit newFrame(_threadIndex, image, _currentFrame);
+			emit newFrame(image);
 		}
 	}
-}
-
-bool MFThread::isBusy()
-{
-	bool temp;
-	_semaphore.acquire();
-	if (_isBusy)
-		temp = true;
-	else
-	{
-		temp = false;
-		_isBusy = true;
-	}
-	_semaphore.release();
-	return temp;
-}
-
-void MFThread::noBusy()
-{
-	_semaphore.acquire();
-	_isBusy = false;
-	_semaphore.release();
+	_isActive = false;
 }
 
 void MFThread::processImageMjpeg()
@@ -186,7 +151,7 @@ void MFThread::processImageMjpeg()
 
 	// got image, process it
 	if ( !(_cropLeft > 0 || _cropTop > 0 || _cropBottom > 0 || _cropRight > 0))
-		emit newFrame(_threadIndex, srcImage, _currentFrame);
+		emit newFrame(srcImage);
 	else
     {
 		// calculate the output size
@@ -210,6 +175,6 @@ void MFThread::processImageMjpeg()
 		}
 
     	// emit
-		emit newFrame(_threadIndex, destImage, _currentFrame);
+		emit newFrame(destImage);
 	}
 }

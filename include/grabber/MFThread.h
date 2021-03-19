@@ -1,8 +1,8 @@
 #pragma once
 
 // Qt includes
-#include <QThread>
-#include <QSemaphore>
+#include <QThreadPool>
+#include <QRunnable>
 
 // util includes
 #include <utils/PixelFormat.h>
@@ -19,7 +19,7 @@
 class MFThreadManager;
 
 /// Encoder thread for USB devices
-class MFThread : public QThread
+class MFThread : public QObject, public QRunnable
 {
 	Q_OBJECT
 	friend class MFThreadManager;
@@ -29,21 +29,18 @@ public:
 	~MFThread();
 
 	void setup(
-		unsigned int threadIndex, PixelFormat pixelFormat, uint8_t* sharedData,
+		PixelFormat pixelFormat, uint8_t* sharedData,
 		int size, int width, int height, int lineLength,
 		int subsamp, unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
-		VideoMode videoMode, FlipMode flipMode, int currentFrame, int pixelDecimation);
+		VideoMode videoMode, FlipMode flipMode, int pixelDecimation);
 	void run();
-	void startThread();
 
-	bool isBusy();
-	void noBusy();
+	static volatile bool _isActive;
 
 signals:
-	void newFrame(unsigned int threadIndex, const Image<ColorRgb>& data, unsigned int sourceCount);
+	void newFrame(const Image<ColorRgb>& data);
 
 private:
-	void startOnThisThread();
 	void processImageMjpeg();
 
 #ifdef HAVE_TURBO_JPEG
@@ -53,10 +50,6 @@ private:
 	tjtransform*		_xform;
 #endif
 
-	static volatile bool	_isActive;
-	volatile bool			_isBusy;
-	QSemaphore				_semaphore;
-	unsigned int			_threadIndex;
 	PixelFormat				_pixelFormat;
 	uint8_t*				_localData, *_flipBuffer;
 	int						_scalingFactorsCount, _width, _height, _lineLength, _subsamp, _currentFrame, _pixelDecimation;
@@ -71,55 +64,36 @@ class MFThreadManager : public QObject
 	Q_OBJECT
 
 public:
-	MFThreadManager() : _threads(nullptr)
+	MFThreadManager()
+		: _threads(nullptr)
 	{
-		_maxThreads = qBound(1, (QThread::idealThreadCount() > 4 ? (QThread::idealThreadCount() - 1) : QThread::idealThreadCount()), 8);
+		_threadCount = QThreadPool::globalInstance()->maxThreadCount();
 	}
 
 	~MFThreadManager()
 	{
-		if (_threads != nullptr)
-		{
-			for(unsigned i=0; i < _maxThreads; i++)
-				if (_threads[i] != nullptr)
-				{
-					_threads[i]->deleteLater();
-					_threads[i] = nullptr;
-				}
+		stop();
 
-			delete[] _threads;
-			_threads = nullptr;
-		}
+		delete[] _threads;
+		_threads = nullptr;
 	}
 
-	void initThreads()
+	void start()
 	{
-		if (_maxThreads >= 1)
+		_threads = new MFThread*[_threadCount];
+		for (int i=0; i < _threadCount; i++)
 		{
-			_threads = new MFThread*[_maxThreads];
-			for (unsigned i=0; i < _maxThreads; i++)
-				_threads[i] = new MFThread();
+			_threads[i] = new MFThread();
+			_threads[i]->setAutoDelete(false);
 		}
 	}
-
-	void start() { MFThread::_isActive = true; }
-	bool isActive() { return MFThread::_isActive; }
 
 	void stop()
 	{
-		MFThread::_isActive = false;
-
-		if (_threads != nullptr)
-		{
-			for(unsigned i = 0; i < _maxThreads; i++)
-				if (_threads[i] != nullptr)
-				{
-					_threads[i]->quit();
-					_threads[i]->wait();
-				}
-		}
+		QThreadPool::globalInstance()->clear();
+		QThreadPool::globalInstance()->waitForDone();
 	}
 
-	unsigned int	_maxThreads;
-	MFThread**		_threads;
+	int			_threadCount;
+	MFThread**	_threads;
 };

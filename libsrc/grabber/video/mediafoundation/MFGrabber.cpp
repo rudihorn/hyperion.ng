@@ -65,7 +65,11 @@ bool MFGrabber::start()
 	if(!_initialized)
 	{
 		_threadManager.start();
-		DebugIf(verbose, _log, "Decoding threads: %d",_threadManager._maxThreads);
+
+		for (int i=0; i < _threadManager._threadCount && _threadManager._threads != nullptr; i++)
+			connect(_threadManager._threads[i], SIGNAL(newFrame(const Image<ColorRgb> &)), this , SLOT(newThreadFrame(const Image<ColorRgb> &)));
+
+		DebugIf(verbose, _log, "Decoding threads: %d", _threadManager._threadCount);
 
 		if(init())
 		{
@@ -490,7 +494,7 @@ void MFGrabber::start_capturing()
 
 void MFGrabber::process_image(const void *frameImageBuffer, int size)
 {
-	unsigned int processFrameIndex = _currentFrame++;
+	int processFrameIndex = _currentFrame++;
 
 	// frame skipping
 	if((processFrameIndex % (_fpsSoftwareDecimation + 1) != 0) && (_fpsSoftwareDecimation > 0))
@@ -501,37 +505,14 @@ void MFGrabber::process_image(const void *frameImageBuffer, int size)
 		Error(_log, "Frame too small: %d != %d", size, _frameByteSize);
 	else
 	{
-		if (_threadManager.isActive())
+		for (int i = 0; i < _threadManager._threadCount && _threadManager._threads != nullptr; i++)
 		{
-			if (_threadManager._threads == nullptr)
+			if (!_threadManager._threads[i]->_isActive)
 			{
-				_threadManager.initThreads();
-				Debug(_log, "Max thread count  = %d", _threadManager._maxThreads);
+				_threadManager._threads[i]->setup(_pixelFormat, (uint8_t*)frameImageBuffer, size, _width, _height, _lineLength, _subsamp, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, _pixelDecimation);
 
-				for (unsigned int i=0; i < _threadManager._maxThreads && _threadManager._threads != nullptr; i++)
-				{
-					MFThread* _thread = _threadManager._threads[i];
-					connect(_thread, SIGNAL(newFrame(unsigned int, const Image<ColorRgb> &,unsigned int)), this , SLOT(newThreadFrame(unsigned int, const Image<ColorRgb> &, unsigned int)));
-				}
-		    }
-
-			for (unsigned int i = 0;_threadManager.isActive() && i < _threadManager._maxThreads && _threadManager._threads != nullptr; i++)
-			{
-				if ((_threadManager._threads[i]->isFinished() || !_threadManager._threads[i]->isRunning()))
-				{
-					// aquire lock
-					if ( _threadManager._threads[i]->isBusy() == false)
-					{
-						MFThread* _thread = _threadManager._threads[i];
-						_thread->setup(i, _pixelFormat, (uint8_t *)frameImageBuffer, size, _width, _height, _lineLength, _subsamp, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, processFrameIndex, _pixelDecimation);
-
-						if (_threadManager._maxThreads > 1)
-							_threadManager._threads[i]->start();
-						else
-							_threadManager._threads[i]->startThread();
-						break;
-					}
-				}
+				if (QThreadPool::globalInstance()->tryStart(_threadManager._threads[i]))
+					break;
 			}
 		}
 	}
@@ -543,19 +524,7 @@ void MFGrabber::receive_image(const void *frameImageBuffer, int size)
 	start_capturing();
 }
 
-void MFGrabber::newThreadFrame(unsigned int threadIndex, const Image<ColorRgb>& image, unsigned int sourceCount)
-{
-	checkSignalDetectionEnabled(image);
-
-	// get next frame
-	if (threadIndex >_threadManager._maxThreads)
-		Error(_log, "Frame index %d out of range", sourceCount);
-
-	if (threadIndex <= _threadManager._maxThreads)
-		_threadManager._threads[threadIndex]->noBusy();
-}
-
-void MFGrabber::checkSignalDetectionEnabled(Image<ColorRgb> image)
+void MFGrabber::newThreadFrame(Image<ColorRgb> image)
 {
 	if(_signalDetectionEnabled)
 	{

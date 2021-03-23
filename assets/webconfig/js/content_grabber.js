@@ -419,7 +419,7 @@ $(document).ready(function () {
       if (!conf_editor_video.validate().length) {
 
         switch (deviceSelected) {
-          case "CUSTOM":
+          case "SELECT":
             showAllVideoInputOptions(conf_editor_video, "grabberV4L2", false);
             break;
           case "NONE":
@@ -436,7 +436,7 @@ $(document).ready(function () {
 
     conf_editor_video.watch('root.grabberV4L2.available_devices', () => {
       var deviceSelected = conf_editor_video.getEditor("root.grabberV4L2.available_devices").getValue();
-      if (deviceSelected === "NONE" || deviceSelected === "CUSTOM" || deviceSelected === "") {
+      if (deviceSelected === "NONE" || deviceSelected === "SELECT" || deviceSelected === "") {
         $('#btn_submit_videograbber').attr('disabled', true);
       }
       else {
@@ -730,7 +730,7 @@ $(document).ready(function () {
     var enumVals = [];
     var enumTitelVals = [];
     var enumDefaultVal = "";
-    var custom = false;
+    var addSelect = false;
 
     if (jQuery.isEmptyObject(discoveryInfo)) {
       enumVals.push("NONE");
@@ -750,14 +750,13 @@ $(document).ready(function () {
         enumDefaultVal = configuredDevice;
       }
       else {
-        custom = true;
-        enumDefaultVal = "CUSTOM";
+        addSelect = true;
         showAllVideoInputOptions(conf_editor_video, "grabberV4L2", false);
       }
     }
 
     updateJsonEditorSelection(conf_editor_video.getEditor('root.grabberV4L2'),
-        'available_devices', {}, enumVals, enumTitelVals, enumDefaultVal, custom, true, "edt_conf_enum_please_select");
+      'available_devices', {}, enumVals, enumTitelVals, enumDefaultVal, addSelect);
   }
 
   async function discoverInputSources(type, params) {

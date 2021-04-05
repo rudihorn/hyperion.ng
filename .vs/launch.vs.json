@@ -1,0 +1,24 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "hyperiond.exe (bin\\hyperiond.exe)",
+      "name": "hyperiond.exe (bin\\hyperiond.exe)",
+      "args": [
+        "-d",
+        "-c",
+        "-u test"
+      ],
+      "externalConsole": true
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "hyperiond.exe (Install) (bin\\hyperiond.exe)",
+      "name": "hyperiond.exe (Install) (bin\\hyperiond.exe)"
+    }
+  ]
+}

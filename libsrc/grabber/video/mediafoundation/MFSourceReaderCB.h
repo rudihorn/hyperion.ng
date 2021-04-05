@@ -129,7 +129,7 @@ public:
 			goto done;
 		}
 
-		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::NO_CHANGE)
+		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::BGR24 && _pixelformat != PixelFormat::NO_CHANGE)
 			pSample = TransformSample(_transform, pSample);
 
 		_hrStatus = pSample->ConvertToContiguousBuffer(&buffer);
@@ -162,7 +162,7 @@ public:
 	done:
 		SAFE_RELEASE(buffer);
 
-		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::NO_CHANGE)
+		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::BGR24 && _pixelformat != PixelFormat::NO_CHANGE)
 			SAFE_RELEASE(pSample);
 
 		if (MF_SOURCE_READERF_ENDOFSTREAM & dwStreamFlags)
@@ -175,7 +175,7 @@ public:
 	HRESULT SourceReaderCB::InitializeVideoEncoder(IMFMediaType* type, PixelFormat format)
 	{
 		_pixelformat = format;
-		if (format == PixelFormat::MJPEG || format == PixelFormat::NO_CHANGE)
+		if (format == PixelFormat::MJPEG || format == PixelFormat::BGR24 || format == PixelFormat::NO_CHANGE)
 			return S_OK;
 
 		// Variable declaration
@@ -369,9 +369,9 @@ private:
 private:
 	long				_nRefCount;
 	CRITICAL_SECTION	_critsec;
-	MFGrabber* _grabber;
+	MFGrabber*			_grabber;
 	BOOL				_bEOS;
 	HRESULT				_hrStatus;
-	IMFTransform* _transform;
+	IMFTransform*		_transform;
 	PixelFormat			_pixelformat;
 };

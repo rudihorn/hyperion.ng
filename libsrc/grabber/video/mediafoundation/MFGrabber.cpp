@@ -65,10 +65,7 @@ bool MFGrabber::start()
 	if(!_initialized)
 	{
 		_threadManager.start();
-
-		for (int i=0; i < _threadManager._threadCount && _threadManager._threads != nullptr; i++)
-			connect(_threadManager._threads[i], SIGNAL(newFrame(const Image<ColorRgb> &)), this , SLOT(newThreadFrame(const Image<ColorRgb> &)));
-
+		connect(&_threadManager, &MFThreadManager::newFrame, this, &MFGrabber::newThreadFrame);
 		DebugIf(verbose, _log, "Decoding threads: %d", _threadManager._threadCount);
 
 		if(init())
@@ -90,6 +87,7 @@ void MFGrabber::stop()
 	{
 		_initialized = false;
 		_threadManager.stop();
+		disconnect(&_threadManager, nullptr, nullptr, nullptr);
 		uninit_device();
 		_deviceProperties.clear();
 		Info(_log, "Stopped");
@@ -505,14 +503,13 @@ void MFGrabber::process_image(const void *frameImageBuffer, int size)
 		Error(_log, "Frame too small: %d != %d", size, _frameByteSize);
 	else
 	{
-		for (int i = 0; i < _threadManager._threadCount && _threadManager._threads != nullptr; i++)
+		for (int i = 0; i < _threadManager._threadCount; i++)
 		{
-			if (!_threadManager._threads[i]->_isActive)
+			if (!_threadManager._threads[i]->isBusy())
 			{
 				_threadManager._threads[i]->setup(_pixelFormat, (uint8_t*)frameImageBuffer, size, _width, _height, _lineLength, _subsamp, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, _pixelDecimation);
-
-				if (QThreadPool::globalInstance()->tryStart(_threadManager._threads[i]))
-					break;
+				_threadManager._threads[i]->process();
+				break;
 			}
 		}
 	}

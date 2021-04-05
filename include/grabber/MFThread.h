@@ -1,8 +1,7 @@
 #pragma once
 
 // Qt includes
-#include <QThreadPool>
-#include <QRunnable>
+#include <QThread>
 
 // util includes
 #include <utils/PixelFormat.h>
@@ -15,17 +14,13 @@
 	#include <turbojpeg.h>
 #endif
 
-// Forward class declaration
-class MFThreadManager;
-
 /// Encoder thread for USB devices
-class MFThread : public QObject, public QRunnable
+class MFThread : public QObject
 {
 	Q_OBJECT
-	friend class MFThreadManager;
 
 public:
-	MFThread();
+	explicit MFThread();
 	~MFThread();
 
 	void setup(
@@ -33,9 +28,11 @@ public:
 		int size, int width, int height, int lineLength,
 		int subsamp, unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
 		VideoMode videoMode, FlipMode flipMode, int pixelDecimation);
-	void run();
 
-	static volatile bool _isActive;
+	void process();
+
+	bool isBusy() { return _busy; }
+	QAtomicInt _busy = false;
 
 signals:
 	void newFrame(const Image<ColorRgb>& data);
@@ -59,41 +56,116 @@ private:
 	ImageResampler			_imageResampler;
 };
 
+template <typename TThread> class Thread : public QThread
+{
+public:
+	TThread *_thread;
+	explicit Thread(TThread *thread, QObject *parent = nullptr) : QThread(parent), _thread(thread)
+	{
+		_thread->moveToThread(this);
+		start();
+	}
+
+	~Thread()
+	{
+		quit();
+		wait();
+	}
+
+	MFThread* thread() const { return qobject_cast<MFThread*>(_thread); }
+
+	void setup(
+		PixelFormat pixelFormat, uint8_t* sharedData,
+		int size, int width, int height, int lineLength,
+		int subsamp, unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
+		VideoMode videoMode, FlipMode flipMode, int pixelDecimation)
+	{
+		auto mfthread=qobject_cast<MFThread*>(_thread);
+		if (mfthread!=nullptr)
+			mfthread->setup(pixelFormat, sharedData,
+				size, width, height, lineLength,
+				subsamp, cropLeft, cropTop, cropBottom, cropRight,
+				videoMode, flipMode, pixelDecimation);
+	}
+
+	bool isBusy()
+	{
+		auto mfthread=qobject_cast<MFThread*>(_thread);
+		if (mfthread!=nullptr)
+			return mfthread->isBusy();
+
+		return true;
+	}
+
+	void process()
+	{
+		auto mfthread=qobject_cast<MFThread*>(_thread);
+		if (mfthread!=nullptr)
+			mfthread->process();
+	}
+
+protected:
+	void run() override
+	{
+		QThread::run();
+		delete _thread;
+	}
+};
+
 class MFThreadManager : public QObject
 {
-	Q_OBJECT
+    Q_OBJECT
 
 public:
-	MFThreadManager()
-		: _threads(nullptr)
+	explicit MFThreadManager()
+		: _threadCount(qMax(QThread::idealThreadCount(), 1))
+		, _threads(nullptr)
 	{
-		_threadCount = QThreadPool::globalInstance()->maxThreadCount();
+		init();
 	}
 
 	~MFThreadManager()
 	{
-		stop();
+		if (_threads != nullptr)
+		{
+			for(int i = 0; i < _threadCount; i++)
+			{
+				_threads[i]->deleteLater();
+				_threads[i] = nullptr;
+			}
 
-		delete[] _threads;
-		_threads = nullptr;
+			delete[] _threads;
+			_threads = nullptr;
+		}
+	}
+
+	void init()
+	{
+		_threads = new Thread<MFThread>*[_threadCount];
+		for (int i = 0; i < _threadCount; i++)
+		{
+			_threads[i] = new Thread<MFThread>(new MFThread, this);
+			_threads[i]->setObjectName("MFThread " + i);
+		}
 	}
 
 	void start()
 	{
-		_threads = new MFThread*[_threadCount];
-		for (int i=0; i < _threadCount; i++)
-		{
-			_threads[i] = new MFThread();
-			_threads[i]->setAutoDelete(false);
-		}
+		if (_threads != nullptr)
+			for (int i = 0; i < _threadCount; i++)
+				connect(_threads[i]->thread(), &MFThread::newFrame, this, &MFThreadManager::newFrame);
 	}
 
 	void stop()
 	{
-		QThreadPool::globalInstance()->clear();
-		QThreadPool::globalInstance()->waitForDone();
+		if (_threads != nullptr)
+			for(int i = 0; i < _threadCount; i++)
+				disconnect(_threads[i]->thread(), nullptr, nullptr, nullptr);
 	}
 
-	int			_threadCount;
-	MFThread**	_threads;
+	int					_threadCount;
+	Thread<MFThread>**	_threads;
+
+signals:
+	void newFrame(const Image<ColorRgb>& data);
 };

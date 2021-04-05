@@ -1,7 +1,5 @@
 #include "grabber/MFThread.h"
 
-volatile bool MFThread::_isActive = false;
-
 MFThread::MFThread()
 	: _localData(nullptr)
 	, _scalingFactorsCount(0)
@@ -56,9 +54,9 @@ void MFThread::setup(
 	memcpy(_localData, sharedData, size);
 }
 
-void MFThread::run()
+void MFThread::process()
 {
-	_isActive = true;
+	_busy = true;
 	if (_width > 0 && _height > 0)
 	{
 		if (_pixelFormat == PixelFormat::MJPEG)
@@ -84,7 +82,7 @@ void MFThread::run()
 			emit newFrame(image);
 		}
 	}
-	_isActive = false;
+	_busy = false;
 }
 
 void MFThread::processImageMjpeg()

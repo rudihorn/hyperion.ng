@@ -41,7 +41,6 @@ class MFGrabber : public Grabber
 {
 	Q_OBJECT
 	friend class SourceReaderCB;
-
 public:
 	struct DeviceProperties
 	{
@@ -95,15 +94,24 @@ private:
 	void start_capturing();
 	void process_image(const void *frameImageBuffer, int size);
 
-	QString										_currentDeviceName, _newDeviceName;
+	QString										_currentDeviceName,
+												_newDeviceName;
 	QMap<QString, QList<DeviceProperties>>		_deviceProperties;
 	HRESULT										_hr;
+	IMFSourceReader*							_sourceReader;
 	SourceReaderCB*								_sourceReaderCB;
-	PixelFormat									_pixelFormat, _pixelFormatConfig;
-	int											_lineLength, _frameByteSize,
-												_noSignalCounterThreshold, _noSignalCounter,
-												_brightness, _contrast, _saturation, _hue;
-	volatile unsigned int						_currentFrame;
+	MFThreadManager*							_threadManager;
+	PixelFormat									_pixelFormat,
+												_pixelFormatConfig;
+	int											_lineLength,
+												_frameByteSize,
+												_noSignalCounterThreshold,
+												_noSignalCounter,
+												_brightness,
+												_contrast,
+												_saturation,
+												_hue;
+	QAtomicInt									_currentFrame;
 	ColorRgb									_noSignalThresholdColor;
 	bool										_signalDetectionEnabled,
 												_noSignalDetected,
@@ -113,8 +121,6 @@ private:
 												_y_frac_min,
 												_x_frac_max,
 												_y_frac_max;
-	MFThreadManager								_threadManager;
-	IMFSourceReader*							_sourceReader;
 
 #ifdef HAVE_TURBO_JPEG
 	int											_subsamp;

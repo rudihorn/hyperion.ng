@@ -18,7 +18,6 @@
 class MFThread : public QObject
 {
 	Q_OBJECT
-
 public:
 	explicit MFThread();
 	~MFThread();
@@ -47,20 +46,32 @@ private:
 	tjtransform*		_xform;
 #endif
 
-	PixelFormat				_pixelFormat;
-	uint8_t*				_localData, *_flipBuffer;
-	int						_scalingFactorsCount, _width, _height, _lineLength, _subsamp, _currentFrame, _pixelDecimation;
-	unsigned long			_size;
-	unsigned				_cropLeft, _cropTop, _cropBottom, _cropRight;
-	FlipMode				_flipMode;
-	ImageResampler			_imageResampler;
+	PixelFormat			_pixelFormat;
+	uint8_t*			_localData,
+						*_flipBuffer;
+	int					_scalingFactorsCount,
+						_width,
+						_height,
+						_lineLength,
+						_subsamp,
+						_currentFrame,
+						_pixelDecimation;
+	unsigned long		_size;
+	unsigned			_cropLeft,
+						_cropTop,
+						_cropBottom,
+						_cropRight;
+	FlipMode			_flipMode;
+	ImageResampler		_imageResampler;
 };
 
 template <typename TThread> class Thread : public QThread
 {
 public:
 	TThread *_thread;
-	explicit Thread(TThread *thread, QObject *parent = nullptr) : QThread(parent), _thread(thread)
+	explicit Thread(TThread *thread, QObject *parent = nullptr)
+		: QThread(parent)
+		, _thread(thread)
 	{
 		_thread->moveToThread(this);
 		start();
@@ -115,13 +126,18 @@ protected:
 class MFThreadManager : public QObject
 {
     Q_OBJECT
-
 public:
-	explicit MFThreadManager()
-		: _threadCount(qMax(QThread::idealThreadCount(), 1))
+	explicit MFThreadManager(QObject *parent = nullptr)
+		: QObject(parent)
+		, _threadCount(qMax(QThread::idealThreadCount(), 1))
 		, _threads(nullptr)
 	{
-		init();
+		_threads = new Thread<MFThread>*[_threadCount];
+		for (int i = 0; i < _threadCount; i++)
+		{
+			_threads[i] = new Thread<MFThread>(new MFThread, this);
+			_threads[i]->setObjectName("MFThread " + i);
+		}
 	}
 
 	~MFThreadManager()
@@ -136,16 +152,6 @@ public:
 
 			delete[] _threads;
 			_threads = nullptr;
-		}
-	}
-
-	void init()
-	{
-		_threads = new Thread<MFThread>*[_threadCount];
-		for (int i = 0; i < _threadCount; i++)
-		{
-			_threads[i] = new Thread<MFThread>(new MFThread, this);
-			_threads[i]->setObjectName("MFThread " + i);
 		}
 	}
 

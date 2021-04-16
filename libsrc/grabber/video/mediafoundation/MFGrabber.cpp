@@ -11,6 +11,7 @@ MFGrabber::MFGrabber()
 	, _hr(S_FALSE)
 	, _sourceReader(nullptr)
 	, _sourceReaderCB(nullptr)
+	, _threadManager(nullptr)
 	, _pixelFormat(PixelFormat::NO_CHANGE)
 	, _pixelFormatConfig(PixelFormat::NO_CHANGE)
 	, _lineLength(-1)
@@ -45,6 +46,10 @@ MFGrabber::~MFGrabber()
 	SAFE_RELEASE(_sourceReader);
 	SAFE_RELEASE(_sourceReaderCB);
 
+	if (_threadManager)
+		delete _threadManager;
+	_threadManager = nullptr;
+
 	if(SUCCEEDED(_hr) && SUCCEEDED(MFShutdown()))
 		CoUninitialize();
 }
@@ -53,8 +58,13 @@ bool MFGrabber::prepare()
 {
 	if(SUCCEEDED(_hr))
 	{
+		if (!_sourceReaderCB)
 		_sourceReaderCB = new SourceReaderCB(this);
-		return (_sourceReaderCB != nullptr);
+
+		if (!_threadManager)
+			_threadManager = new MFThreadManager(this);
+
+		return (_sourceReaderCB != nullptr && _threadManager != nullptr);
 	}
 
 	return false;
@@ -62,23 +72,27 @@ bool MFGrabber::prepare()
 
 bool MFGrabber::start()
 {
-	if(!_initialized)
+	if (!_initialized)
 	{
-		_threadManager.start();
-		connect(&_threadManager, &MFThreadManager::newFrame, this, &MFGrabber::newThreadFrame);
-		DebugIf(verbose, _log, "Decoding threads: %d", _threadManager._threadCount);
-
-		if(init())
+		if (init())
 		{
+			connect(_threadManager, &MFThreadManager::newFrame, this, &MFGrabber::newThreadFrame);
+			_threadManager->start();
+			DebugIf(verbose, _log, "Decoding threads: %d", _threadManager->_threadCount);
+
 			start_capturing();
 			Info(_log, "Started");
 			return true;
 		}
 		else
+		{
 			_currentDeviceName = "none";
+			Error(_log, "The Media Foundation Grabber could not be started");
+			return false;
+		}
 	}
-
-	return false;
+	else
+		return true;
 }
 
 void MFGrabber::stop()
@@ -86,8 +100,8 @@ void MFGrabber::stop()
 	if(_initialized)
 	{
 		_initialized = false;
-		_threadManager.stop();
-		disconnect(&_threadManager, nullptr, nullptr, nullptr);
+		_threadManager->stop();
+		disconnect(_threadManager, nullptr, nullptr, nullptr);
 		uninit_device();
 		_deviceProperties.clear();
 		Info(_log, "Stopped");
@@ -126,7 +140,10 @@ bool MFGrabber::init()
 		}
 
 		if(deviceIndex >= 0 && SUCCEEDED(init_device(_currentDeviceName, dev[deviceIndex])))
+		{
 			_initialized = true;
+			_newDeviceName = _currentDeviceName;
+		}
 		else
 		{
 			Debug(_log, "Configured device '%s' is not available.", QSTRING_CSTR(_currentDeviceName));
@@ -482,7 +499,7 @@ void MFGrabber::enumVideoCaptureDevices()
 
 void MFGrabber::start_capturing()
 {
-	if (_initialized && _sourceReader)
+	if(_initialized && _sourceReader && _threadManager)
 	{
 		HRESULT hr = _sourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, NULL, NULL, NULL, NULL);
 		if (!SUCCEEDED(hr))
@@ -501,14 +518,14 @@ void MFGrabber::process_image(const void *frameImageBuffer, int size)
 	// We do want a new frame...
 	if (size < _frameByteSize && _pixelFormat != PixelFormat::MJPEG)
 		Error(_log, "Frame too small: %d != %d", size, _frameByteSize);
-	else
+	else if (_threadManager != nullptr)
 	{
-		for (int i = 0; i < _threadManager._threadCount; i++)
+		for (int i = 0; i < _threadManager->_threadCount; i++)
 		{
-			if (!_threadManager._threads[i]->isBusy())
+			if (!_threadManager->_threads[i]->isBusy())
 			{
-				_threadManager._threads[i]->setup(_pixelFormat, (uint8_t*)frameImageBuffer, size, _width, _height, _lineLength, _subsamp, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, _pixelDecimation);
-				_threadManager._threads[i]->process();
+				_threadManager->_threads[i]->setup(_pixelFormat, (uint8_t*)frameImageBuffer, size, _width, _height, _lineLength, _subsamp, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, _pixelDecimation);
+				_threadManager->_threads[i]->process();
 				break;
 			}
 		}

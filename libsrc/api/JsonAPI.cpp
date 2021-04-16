@@ -58,6 +58,9 @@
 
 using namespace hyperion;
 
+// Constants
+namespace { const bool verbose = false; }
+
 JsonAPI::JsonAPI(QString peerAddress, Logger *log, bool localConnection, QObject *parent, bool noListener)
 	: API(log, localConnection, parent)
 {
@@ -1437,7 +1440,7 @@ void JsonAPI::handleLedDeviceCommand(const QJsonObject &message, const QString &
 
 void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString& command, int tan)
 {
-	Debug(_log, "message: [%s]", QString(QJsonDocument(message).toJson(QJsonDocument::Compact)).toUtf8().constData());
+	DebugIf(verbose, _log, "message: [%s]", QString(QJsonDocument(message).toJson(QJsonDocument::Compact)).toUtf8().constData());
 
 	const QString& subc = message["subcommand"].toString().trimmed();
 	const QString& sourceType = message["sourceType"].toString().trimmed();
@@ -1473,7 +1476,8 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 			else
 #endif
 			{
-				Debug(_log, "sourceType: [%s]", QSTRING_CSTR(sourceType));
+				DebugIf(verbose, _log, "sourceType: [%s]", QSTRING_CSTR(sourceType));
+
 				if (sourceType == "screen")
 				{
 					QJsonObject params;
@@ -1513,7 +1517,7 @@ void JsonAPI::handleInputSourceCommand(const QJsonObject& message, const QString
 			}
 			inputSourcesDiscovered["video_sources"] = videoInputs;
 
-			Debug(_log, "response: [%s]", QString(QJsonDocument(inputSourcesDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
+			DebugIf(verbose, _log, "response: [%s]", QString(QJsonDocument(inputSourcesDiscovered).toJson(QJsonDocument::Compact)).toUtf8().constData());
 
 			sendSuccessDataReply(QJsonDocument(inputSourcesDiscovered), full_command, tan);
 		}

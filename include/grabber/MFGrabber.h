@@ -89,7 +89,6 @@ private:
 	bool init();
 	void uninit();
 	HRESULT init_device(QString device, DeviceProperties props);
-	void uninit_device();
 	void enumVideoCaptureDevices();
 	void start_capturing();
 	void process_image(const void *frameImageBuffer, int size);

@@ -91,8 +91,8 @@ public:
 		int subsamp, unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
 		VideoMode videoMode, FlipMode flipMode, int pixelDecimation)
 	{
-		auto mfthread=qobject_cast<MFThread*>(_thread);
-		if (mfthread!=nullptr)
+		auto mfthread = qobject_cast<MFThread*>(_thread);
+		if (mfthread != nullptr)
 			mfthread->setup(pixelFormat, sharedData,
 				size, width, height, lineLength,
 				subsamp, cropLeft, cropTop, cropBottom, cropRight,
@@ -101,8 +101,8 @@ public:
 
 	bool isBusy()
 	{
-		auto mfthread=qobject_cast<MFThread*>(_thread);
-		if (mfthread!=nullptr)
+		auto mfthread = qobject_cast<MFThread*>(_thread);
+		if (mfthread != nullptr)
 			return mfthread->isBusy();
 
 		return true;
@@ -110,8 +110,8 @@ public:
 
 	void process()
 	{
-		auto mfthread=qobject_cast<MFThread*>(_thread);
-		if (mfthread!=nullptr)
+		auto mfthread = qobject_cast<MFThread*>(_thread);
+		if (mfthread != nullptr)
 			mfthread->process();
 	}
 

@@ -102,7 +102,9 @@ void MFGrabber::stop()
 		_initialized = false;
 		_threadManager->stop();
 		disconnect(_threadManager, nullptr, nullptr, nullptr);
-		uninit_device();
+		_sourceReader->Flush(MF_SOURCE_READER_FIRST_VIDEO_STREAM);
+		while (_sourceReaderCB->isBusy()) {}
+		SAFE_RELEASE(_sourceReader);
 		_deviceProperties.clear();
 		Info(_log, "Stopped");
 	}
@@ -398,11 +400,6 @@ done:
 	SAFE_RELEASE(sourceReaderAttributes);
 
 	return hr;
-}
-
-void MFGrabber::uninit_device()
-{
-	SAFE_RELEASE(_sourceReader);
 }
 
 void MFGrabber::enumVideoCaptureDevices()

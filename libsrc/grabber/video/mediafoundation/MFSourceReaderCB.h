@@ -44,9 +44,11 @@ public:
 		, _grabber(grabber)
 		, _bEOS(FALSE)
 		, _hrStatus(S_OK)
+		, _isBusy(false)
 		, _transform(nullptr)
 		, _pixelformat(PixelFormat::NO_CHANGE)
 	{
+		// Initialize critical section.
 		InitializeCriticalSection(&_critsec);
 	}
 
@@ -81,12 +83,20 @@ public:
 		DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
 		EnterCriticalSection(&_critsec);
+		_isBusy = true;
+
+		if (_grabber->_sourceReader == nullptr)
+		{
+			_isBusy = false;
+			LeaveCriticalSection(&_critsec);
+			return S_OK;
+		}
 
 		if (dwStreamFlags & MF_SOURCE_READERF_STREAMTICK)
 		{
 			Debug(_grabber->_log, "Skipping stream gap");
 			LeaveCriticalSection(&_critsec);
-			_grabber->_sourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, NULL, NULL, NULL, NULL);
+			_grabber->_sourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 			return S_OK;
 		}
 
@@ -162,12 +172,10 @@ public:
 	done:
 		SAFE_RELEASE(buffer);
 
-		if (_pixelformat != PixelFormat::MJPEG && _pixelformat != PixelFormat::BGR24 && _pixelformat != PixelFormat::NO_CHANGE)
-			SAFE_RELEASE(pSample);
-
 		if (MF_SOURCE_READERF_ENDOFSTREAM & dwStreamFlags)
 			_bEOS = TRUE; // Reached the end of the stream.
 
+		_isBusy = false;
 		LeaveCriticalSection(&_critsec);
 		return _hrStatus;
 	}
@@ -272,6 +280,15 @@ public:
 		return _hrStatus;
 	}
 
+	BOOL SourceReaderCB::isBusy()
+	{
+		EnterCriticalSection(&_critsec);
+		BOOL result = _isBusy;
+		LeaveCriticalSection(&_critsec);
+
+		return result;
+	}
+
 	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent*) { return S_OK; }
 	STDMETHODIMP OnFlush(DWORD) { return S_OK; }
 
@@ -285,6 +302,9 @@ private:
 		}
 
 		SAFE_RELEASE(_transform);
+
+		// Delete critical section.
+		DeleteCriticalSection(&_critsec);
 	}
 
 	IMFSample* SourceReaderCB::TransformSample(IMFTransform* transform, IMFSample* in_sample)
@@ -374,4 +394,5 @@ private:
 	HRESULT				_hrStatus;
 	IMFTransform*		_transform;
 	PixelFormat			_pixelformat;
+	std::atomic<bool>	_isBusy;
 };

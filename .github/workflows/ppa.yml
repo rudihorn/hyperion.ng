@@ -10,26 +10,32 @@ jobs:
         distro: [ubuntu-focal]
         include:
           - distro: ubuntu-focal
-            dockerName: Ubuntu Focal (amd64)
+            dockerName: Ubuntu Focal
     steps:
       - uses: actions/checkout@v2
+      
+      - name: Import GPG
+        uses: crazy-max/ghaction-import-gpg@v3.1.0
+        with:
+          gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
 
+      - name: Generate changelog
       - uses: legoktm/gh-action-auto-dch@master
         with:
           fullname: Hyperion Project
           email: admin@hyperion-project.org
           distro: ${{ matrix.distro }}
 
-      - uses: legoktm/gh-action-build-deb@ubuntu-focal
-        if: matrix.distro == 'ubuntu-focal'
-        name: Build package
-        id: build-ubuntu-focal
-        with:
-          args: --no-sign
+      - name: Install devscripts, debhelper-compat, and dput
+        run: sudo apt install devscripts debhelper-compat dput
+        
+      - name: Make package
+        run: |
+          tar cfv ../hyperion.ng_2.0.0-alpha.9.orig.tar .
+          xz -9 ../hyperion.ng_2.0.0-alpha.9.orig.tar
 
-      - uses: legoktm/gh-action-dput@master
-        name: Upload package
-        with:
-          gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
-          repository: ppa:hyperion-project/hyperion.ng-snapshots
-          packages: output/*_source.changes
+      - name: Build source package
+        run: debuild -S -sa
+        
+      - name: Push to Launchpad
+        run: dput ppa:hyperion-project/hyperion.ng-snapshots ../*_source.changes

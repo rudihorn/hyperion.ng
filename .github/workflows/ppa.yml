@@ -29,6 +29,9 @@ jobs:
           args: --no-sign
           ppa: hyperion-project/hyperion.ng-snapshots
 
+      - name: Install devscripts, debhelper-compat, and dput
+        run: sudo apt install devscripts debhelper-compat dput
+
       - name: Import the GPG signing key
         uses: crazy-max/ghaction-import-gpg@v3.1.0
         with:

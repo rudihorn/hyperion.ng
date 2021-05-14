@@ -14,11 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Insert version into changelog/control file
+        shell: bash
+        run: |
+          tr -d '\n' < version > temp && mv temp version
+          echo "$(cat debian/changelog)" | sed "s/VERSION/"$(cat version)"/g" > debian/changelog
+          echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
+
       - uses: legoktm/gh-action-auto-dch@master
         name: Generate changelog
         with:
-          fullname: Paulchen-Panther
-          email: Paulchen-Panter@protonmail.com
+          fullname: Hyperion Project
+          email: admin@hyperion-project.org
           distro: ${{ matrix.distro }}
 
       - uses: legoktm/gh-action-build-deb@ubuntu-focal
@@ -34,3 +41,16 @@ jobs:
           gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
           repository: ppa:hyperion-project/hyperion.ng-snapshots
           packages: output/*_source.changes
+
+#      - name: Install devscripts, debhelper-compat, and dput
+#        run: sudo apt install devscripts debhelper-compat dput
+#
+#      - name: Import the GPG signing key
+#        uses: crazy-max/ghaction-import-gpg@v3.1.0
+#        with:
+#          gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
+#
+#      - name: Sign and push to Launchpad
+#        run: |
+#          debsign output/*_source.changes
+#          dput ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes

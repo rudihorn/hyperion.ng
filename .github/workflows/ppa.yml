@@ -29,9 +29,12 @@ jobs:
           args: --no-sign
           ppa: hyperion-project/hyperion.ng-snapshots
 
-      - uses: legoktm/gh-action-dput@master
-        name: Push to Launchpad
+      - name: Import the GPG signing key
+        uses: crazy-max/ghaction-import-gpg@v3.1.0
         with:
-          gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
-          repository: ppa:hyperion-project/hyperion.ng-snapshots
-          packages: output/*_source.changes
+          gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
+
+      - name: Sign and push to Launchpad
+        run: |
+          debsign  ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes
+          dput ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes

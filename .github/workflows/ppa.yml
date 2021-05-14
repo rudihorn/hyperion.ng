@@ -39,5 +39,5 @@ jobs:
 
       - name: Sign and push to Launchpad
         run: |
-          debsign  ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes
+          debsign output/*_source.changes
           dput ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes

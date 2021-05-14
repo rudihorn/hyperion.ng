@@ -20,7 +20,7 @@ jobs:
           gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
 
       - name: Generate changelog
-      - uses: legoktm/gh-action-auto-dch@master
+        uses: legoktm/gh-action-auto-dch@master
         with:
           fullname: Hyperion Project
           email: admin@hyperion-project.org

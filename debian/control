@@ -30,7 +30,7 @@ Build-Depends: git,
                protobuf-compiler,
                libmbedtls-dev
 Standards-Version: 2.0.0-alpha.9
-Maintainer: Hyperion Project <admin@hyperion-project.org>
+Maintainer: Paulchen-Panther <Paulchen-Panter@protonmail.com>
 Homepage: https://hyperion-project.org/
 
 Package: hyperion.ng

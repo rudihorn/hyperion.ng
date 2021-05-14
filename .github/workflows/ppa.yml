@@ -1,0 +1,38 @@
+name: Hyperion PPA
+on: push
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu-focal]
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: legoktm/gh-action-auto-dch@master
+        with:
+          fullname: Hyperion Project
+          email: admin@hyperion-project.org
+          distro: ${{ matrix.distro }}
+
+      - uses: legoktm/gh-action-build-deb@ubuntu-focal
+        if: matrix.distro == 'ubuntu-focal'
+        name: Build package for ubuntu-focal
+        id: build-ubuntu-focal
+        with:
+          args: --no-sign
+          ppa: hyperion-project/hyperion.ng-snapshots
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Packages for ${{ matrix.distro }}
+          path: output
+
+      - uses: legoktm/gh-action-dput@master
+        name: Upload snapshot package
+        with:
+          gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
+          repository: ppa:hyperion-project/hyperion.ng-snapshots
+          packages: output/*_source.changes

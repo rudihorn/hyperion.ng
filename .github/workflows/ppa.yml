@@ -10,7 +10,7 @@ jobs:
         distro: [ubuntu-focal]
         include:
           - distro: ubuntu-focal
-            dockerName: Debian Stretch (x86_64)
+            dockerName: Ubuntu Focal (amd64)
     steps:
       - uses: actions/checkout@v2
 
@@ -22,19 +22,13 @@ jobs:
 
       - uses: legoktm/gh-action-build-deb@ubuntu-focal
         if: matrix.distro == 'ubuntu-focal'
-        name: Build package for ubuntu-focal
+        name: Build package
         id: build-ubuntu-focal
         with:
           args: --no-sign
-          ppa: hyperion-project/hyperion.ng-snapshots
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: Packages for ${{ matrix.distro }}
-          path: output
 
       - uses: legoktm/gh-action-dput@master
-        name: Upload snapshot package
+        name: Upload package
         with:
           gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
           repository: ppa:hyperion-project/hyperion.ng-snapshots

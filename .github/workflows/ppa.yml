@@ -3,11 +3,14 @@ on: push
 
 jobs:
   build-deb:
+    name: ${{ matrix.dockerName }}
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         distro: [ubuntu-focal]
+        include:
+          - distro: ubuntu-focal
+            dockerName: Debian Stretch (x86_64)
     steps:
       - uses: actions/checkout@v2
 

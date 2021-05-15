@@ -7,8 +7,12 @@ env:
 
 jobs:
   build:
-    name: Ubuntu Focal
+    name: Ubuntu ${{ matrix.distribution }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        distribution: [bionic, focal, groovy, hirsute, impish]
+
     steps:
       - uses: actions/checkout@v2
 
@@ -20,22 +24,22 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install devscripts debhelper-compat dput cmake build-essential qtbase5-dev libqt5serialport5-dev libqt5sql5-sqlite libqt5svg5-dev libqt5x11extras5-dev libusb-1.0-0-dev python3-dev libcec-dev libxcb-image0-dev libxcb-util0-dev libxcb-shm0-dev libxcb-render0-dev libxcb-randr0-dev libxrandr-dev libxrender-dev libavahi-core-dev libavahi-compat-libdnssd-dev libjpeg-dev libturbojpeg0-dev libssl-dev zlib1g-dev libflatbuffers-dev libprotobuf-dev protobuf-compiler libmbedtls-dev
+          sudo apt install devscripts debhelper-compat dput
 
-      - name: Insert informations into changelog/control file
+      - name: Insert version and distribution into changelog/control file
         shell: bash
         run: |
           tr -d '\n' < version > temp && mv temp version
           echo "version=$(cat version)" >> $GITHUB_ENV
           echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
-          dch --create --distribution focal --package "hyperion.ng" -v "$(cat version)+git$(date '+%d%m%Y%H%M').${GITHUB_SHA::7}~focal" "${{ github.event.commits[0].message }}"
+          dch --create --distribution ${{ matrix.distribution }} --package "hyperion.ng" -v "$(cat version)~${{ matrix.distribution }}" "${{ github.event.commits[0].message }}"
 
-      - name: Make original package
+      - name: Make package
         run: |
           tar cfv ../hyperion.ng_${{env.version}}.orig.tar .
           xz -9 ../hyperion.ng_${{env.version}}.orig.tar
 
-      - name: Build source package
+      - name: Build package
         run: debuild -S -sa
 
       - name: Push to Launchpad

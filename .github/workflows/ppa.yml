@@ -13,14 +13,13 @@ jobs:
         with:
           gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
 
-      - name: Insert version and distro into changelog/control file
+      - name: Insert informations into changelog/control file
         shell: bash
         run: |
           tr -d '\n' < version > temp && mv temp version
-          echo "$(cat debian/changelog)" | sed "s/VERSION/"$(cat version)"/g" > debian/changelog
-          echo "$(cat debian/changelog)" | sed "s/VERSION/focal/g" > debian/changelog
-          echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
           echo "version=$(cat version)" >> $GITHUB_ENV
+          echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
+          dch --create --distribution focal --package "hyperion.ng" -M -v "${{env.version}}+git$(date '+%d%m%Y%H%M').${GITHUB_SHA::7}~focal" "${{ github.event.commits[0].message }}"
 
       - name: Install dependencies
         run: |

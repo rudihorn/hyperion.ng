@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        distribution: [bionic, focal, groovy, hirsute, impish]
+        distribution: [Bionic, Focal, Groovy, Hirsute, Impish]
 
     steps:
       - uses: actions/checkout@v2
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install devscripts debhelper-compat dput
+          sudo apt install devscripts debhelper-compat dput cmake build-essential qtbase5-dev libqt5serialport5-dev libqt5sql5-sqlite libqt5svg5-dev libqt5x11extras5-dev libusb-1.0-0-dev python3-dev libcec-dev libxcb-image0-dev libxcb-util0-dev libxcb-shm0-dev libxcb-render0-dev libxcb-randr0-dev libxrandr-dev libxrender-dev libavahi-core-dev libavahi-compat-libdnssd-dev libjpeg-dev libturbojpeg0-dev libssl-dev zlib1g-dev libflatbuffers-dev libprotobuf-dev protobuf-compiler libmbedtls-dev
 
       - name: Insert version and distribution into changelog/control file
         shell: bash
@@ -32,7 +32,7 @@ jobs:
           tr -d '\n' < version > temp && mv temp version
           echo "version=$(cat version)" >> $GITHUB_ENV
           echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
-          dch --create --distribution ${{ matrix.distribution }} --package "hyperion.ng" -v "$(cat version)~${{ matrix.distribution }}" "${{ github.event.commits[0].message }}"
+          dch --create --distribution $(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]') --package "hyperion.ng" -v "$(cat version)~$(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]')" "${{ github.event.commits[0].message }}"
 
       - name: Make package
         run: |

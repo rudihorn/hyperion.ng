@@ -2,55 +2,38 @@ name: Hyperion PPA Build
 on: push
 
 jobs:
-  build-deb:
-    name: ${{ matrix.distroName }}
+  build:
+    name: Ubuntu Focal
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        distro: [ubuntu-focal]
-        include:
-          - distro: ubuntu-focal
-            distroName: Ubuntu Focal
     steps:
       - uses: actions/checkout@v2
 
-      - name: Insert version into changelog/control file
-        shell: bash
-        run: |
-          tr -d '\n' < version > temp && mv temp version
-          echo "$(cat debian/changelog)" | sed "s/VERSION/"$(cat version)"/g" > debian/changelog
-          echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
-
-      - uses: legoktm/gh-action-auto-dch@master
-        name: Generate changelog
-        with:
-          fullname: Hyperion Project
-          email: admin@hyperion-project.org
-          distro: ${{ matrix.distro }}
-
-      - uses: legoktm/gh-action-build-deb@ubuntu-focal
-        if: matrix.distro == 'ubuntu-focal'
-        name: Build source package
-        id: build-ubuntu-focal
-        with:
-          args: --no-sign
-
-#      - uses: legoktm/gh-action-dput@master
-#        name: Push to Launchpad
-#        with:
-#          gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
-#          repository: ppa:hyperion-project/hyperion.ng-snapshots
-#          packages: output/*_source.changes
-
-      - name: Install devscripts, debhelper-compat, and dput
-        run: sudo apt install devscripts debhelper-compat dput
-
-      - name: Import the GPG signing key
+      - name: Import GPG signing key
         uses: crazy-max/ghaction-import-gpg@v3.1.0
         with:
           gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
 
-      - name: Sign and push to Launchpad
+      - name: Insert version and distro into changelog/control file
+        shell: bash
         run: |
-          debsign output/*_source.changes
-          dput ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes
+          tr -d '\n' < version > temp && mv temp version
+          echo "$(cat debian/changelog)" | sed "s/VERSION/"$(cat version)"/g" > debian/changelog
+          echo "$(cat debian/changelog)" | sed "s/VERSION/focal/g" > debian/changelog
+          echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
+          echo "version=$(cat version)" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install devscripts debhelper-compat dput cmake build-essential qtbase5-dev libqt5serialport5-dev libqt5sql5-sqlite libqt5svg5-dev libqt5x11extras5-dev libusb-1.0-0-dev python3-dev libcec-dev libxcb-image0-dev libxcb-util0-dev libxcb-shm0-dev libxcb-render0-dev libxcb-randr0-dev libxrandr-dev libxrender-dev libavahi-core-dev libavahi-compat-libdnssd-dev libjpeg-dev libturbojpeg0-dev libssl-dev zlib1g-dev libflatbuffers-dev libprotobuf-dev protobuf-compiler libmbedtls-dev
+
+      - name: Make original package
+        run: |
+          tar cfv ../hyperion.ng_${{env.version}}.orig.tar .
+          xz -9 ../hyperion.ng_${{env.version}}.orig.tar
+
+      - name: Build source package
+        run: debuild -S -sa
+
+      - name: Push to Launchpad
+        run: dput ppa:hyperion-project/hyperion.ng-snapshots ../*_source.changes

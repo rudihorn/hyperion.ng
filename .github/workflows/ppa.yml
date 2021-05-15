@@ -15,6 +15,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - name: Import GPG signing key
         uses: crazy-max/ghaction-import-gpg@v3.1.0
@@ -32,7 +34,7 @@ jobs:
           tr -d '\n' < version > temp && mv temp version
           echo "version=$(cat version)" >> $GITHUB_ENV
           echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
-          dch --create --distribution $(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]') --package "hyperion.ng" -v "$(cat version)-1~$(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]')" "${{ github.event.commits[0].message }}"
+          dch --create --distribution $(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]') --package "hyperion.ng" -v "$(cat version)-2~$(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]')" "${{ github.event.commits[0].message }}"
 
       - name: Make package
         run: |

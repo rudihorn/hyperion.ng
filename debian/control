@@ -42,6 +42,5 @@ Depends: libqt5widgets5,
          libqt5serialport5,
          libavahi-compat-libdnssd1,
          libmbedtls12,
-         libturbojpeg,
-         libraspberrypi0 [armhf] | rbp-userland-osmc [armhf]
+         libturbojpeg
 Description: Hyperion.NG is an opensource Bias or Ambient Lighting implementation which you might know from TV manufactures. It supports many LED devices and video grabbers.

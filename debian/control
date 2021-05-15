@@ -25,9 +25,6 @@ Build-Depends: git,
                libturbojpeg0-dev,
                libssl-dev,
                zlib1g-dev,
-               libflatbuffers-dev,
-               libprotobuf-dev,
-               protobuf-compiler,
                libmbedtls-dev,
                libraspberrypi-dev [armhf] | rbp-userland-dev-osmc [armhf]
 Standards-Version: 2.0.0

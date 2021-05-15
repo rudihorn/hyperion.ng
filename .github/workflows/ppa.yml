@@ -1,6 +1,10 @@
 name: Hyperion PPA Build
 on: push
 
+env:
+  DEBFULLNAME: "Hyperion Project"
+  DEBEMAIL: "admin@hyperion-project.org"
+
 jobs:
   build:
     name: Ubuntu Focal
@@ -25,9 +29,6 @@ jobs:
           echo "version=$(cat version)" >> $GITHUB_ENV
           echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
           dch --create --distribution focal --package "hyperion.ng" -v "$(cat version)+git$(date '+%d%m%Y%H%M').${GITHUB_SHA::7}~focal" "${{ github.event.commits[0].message }}"
-        environment:
-          DEBEMAIL: "admin@hyperion-project.org"
-          DEBFULLNAME: "Hyperion Project"
 
       - name: Make original package
         run: |

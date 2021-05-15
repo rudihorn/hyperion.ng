@@ -7,7 +7,7 @@ env:
 
 jobs:
   build:
-    name: Ubuntu ${{ matrix.distribution }}
+    name: Ubuntu ${{ matrix.distribution }} (amd64)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,7 +18,7 @@ jobs:
         with:
           submodules: true
 
-      - name: Import GPG signing key
+      - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v3.1.0
         with:
           gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
@@ -26,22 +26,18 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install devscripts debhelper-compat dput cmake build-essential qtbase5-dev libqt5serialport5-dev libqt5sql5-sqlite libqt5svg5-dev libqt5x11extras5-dev libusb-1.0-0-dev python3-dev libcec-dev libxcb-image0-dev libxcb-util0-dev libxcb-shm0-dev libxcb-render0-dev libxcb-randr0-dev libxrandr-dev libxrender-dev libavahi-core-dev libavahi-compat-libdnssd-dev libjpeg-dev libturbojpeg0-dev libssl-dev zlib1g-dev libmbedtls-dev
+          sudo apt install devscripts debhelper-compat dput cmake build-essential qtbase5-dev libqt5serialport5-dev libqt5sql5-sqlite libqt5svg5-dev libqt5x11extras5-dev libusb-1.0-0-dev python3-dev libcec-dev libxcb-image0-dev libxcb-util0-dev libxcb-shm0-dev libxcb-render0-dev libxcb-randr0-dev libxrandr-dev libxrender-dev libavahi-core-dev libavahi-compat-libdnssd-dev libturbojpeg0-dev libssl-dev zlib1g-dev libmbedtls-dev
 
-      - name: Fill informations into changelog file
+      - name: Modify changelog file
         shell: bash
         run: |
           tr -d '\n' < version > temp && mv temp version
           echo "version=$(cat version)" >> $GITHUB_ENV
-          dch --create --distribution $(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]') --package "hyperion.ng" -v "$(cat version)-4~$(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]')" "${{ github.event.commits[0].message }}"
+          dch --create --distribution $(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]') --package "hyperion.ng" -v "$(cat version)-5~$(echo ${{ matrix.distribution }} | tr '[:upper:]' '[:lower:]')" "${{ github.event.commits[0].message }}"
 
-      - name: Make package
+      - name: Make -> Build -> Push
         run: |
-          tar cfv ../hyperion.ng_${{env.version}}.orig.tar .
+          tar cf ../hyperion.ng_${{env.version}}.orig.tar .
           xz -9 ../hyperion.ng_${{env.version}}.orig.tar
-
-      - name: Build package
-        run: debuild -S -sa
-
-      - name: Push to Launchpad
-        run: dput ppa:hyperion-project/hyperion.ng-snapshots ../*_source.changes
+          debuild -S -sa
+          dput ppa:hyperion-project/hyperion.ng-snapshots ../*_source.changes

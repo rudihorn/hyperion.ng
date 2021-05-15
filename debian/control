@@ -25,14 +25,13 @@ Build-Depends: git,
                libturbojpeg0-dev,
                libssl-dev,
                zlib1g-dev,
-               libmbedtls-dev,
-               libraspberrypi-dev [armhf] | rbp-userland-dev-osmc [armhf]
+               libmbedtls-dev
 Standards-Version: 2.0.0
 Maintainer: Hyperion Project <admin@hyperion-project.org>
 Homepage: https://hyperion-project.org/
 
 Package: hyperion.ng
-Architecture: any
+Architecture: amd64
 Depends: libqt5widgets5,
          libqt5x11extras5,
          libqt5sql5,

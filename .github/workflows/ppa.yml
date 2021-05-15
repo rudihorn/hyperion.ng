@@ -1,4 +1,4 @@
-name: Hyperion PPA
+name: Hyperion PPA Build
 on: push
 
 jobs:
@@ -35,22 +35,22 @@ jobs:
         with:
           args: --no-sign
 
-      - uses: legoktm/gh-action-dput@master
-        name: Push to Launchpad
-        with:
-          gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
-          repository: ppa:hyperion-project/hyperion.ng-snapshots
-          packages: output/*_source.changes
-
-#      - name: Install devscripts, debhelper-compat, and dput
-#        run: sudo apt install devscripts debhelper-compat dput
-#
-#      - name: Import the GPG signing key
-#        uses: crazy-max/ghaction-import-gpg@v3.1.0
+#      - uses: legoktm/gh-action-dput@master
+#        name: Push to Launchpad
 #        with:
-#          gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
-#
-#      - name: Sign and push to Launchpad
-#        run: |
-#          debsign output/*_source.changes
-#          dput ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes
+#          gpg_key: ${{ secrets.LAUNCHPAD_GPG }}
+#          repository: ppa:hyperion-project/hyperion.ng-snapshots
+#          packages: output/*_source.changes
+
+      - name: Install devscripts, debhelper-compat, and dput
+        run: sudo apt install devscripts debhelper-compat dput
+
+      - name: Import the GPG signing key
+        uses: crazy-max/ghaction-import-gpg@v3.1.0
+        with:
+          gpg-private-key: ${{ secrets.LAUNCHPAD_GPG }}
+
+      - name: Sign and push to Launchpad
+        run: |
+          debsign output/*_source.changes
+          dput ppa:hyperion-project/hyperion.ng-snapshots output/*_source.changes

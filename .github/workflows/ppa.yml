@@ -24,7 +24,7 @@ jobs:
           tr -d '\n' < version > temp && mv temp version
           echo "version=$(cat version)" >> $GITHUB_ENV
           echo "$(cat debian/control)" | sed "s/VERSION/"$(cat version)"/g" > debian/control
-          dch --create --distribution focal --package "hyperion.ng" -M -v "${{env.version}}+git$(date '+%d%m%Y%H%M').${GITHUB_SHA::7}~focal" "${{ github.event.commits[0].message }}"
+          dch --create --distribution focal --package "hyperion.ng" -M -v "$(cat version)+git$(date '+%d%m%Y%H%M').${GITHUB_SHA::7}~focal" "${{ github.event.commits[0].message }}"
 
       - name: Make original package
         run: |

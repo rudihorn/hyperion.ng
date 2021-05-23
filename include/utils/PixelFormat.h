@@ -14,9 +14,7 @@ enum class PixelFormat {
 	BGR32,
 	NV12,
 	I420,
-#ifdef HAVE_TURBO_JPEG
 	MJPEG,
-#endif
 	NO_CHANGE
 };
 
@@ -57,12 +55,10 @@ inline PixelFormat parsePixelFormat(const QString& pixelFormat)
 	{
 		return PixelFormat::NV12;
 	}
-#ifdef HAVE_TURBO_JPEG
 	else if (format.compare("mjpeg")  == 0)
 	{
 		return PixelFormat::MJPEG;
 	}
-#endif
 
 	// return the default NO_CHANGE
 	return PixelFormat::NO_CHANGE;
@@ -103,12 +99,10 @@ inline QString pixelFormatToString(const PixelFormat& pixelFormat)
 	{
 		return "NV12";
 	}
-#ifdef HAVE_TURBO_JPEG
 	else if (pixelFormat == PixelFormat::MJPEG)
 	{
 		return "MJPEG";
 	}
-#endif
 
 	// return the default NO_CHANGE
 	return "NO_CHANGE";

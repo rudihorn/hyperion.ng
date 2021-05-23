@@ -33,10 +33,8 @@ void Grabber::setVideoMode(VideoMode mode)
 {
 	Debug(_log,"Set videomode to %s", QSTRING_CSTR(videoMode2String(mode)));
 	_videoMode = mode;
-	if ( _useImageResampler )
-	{
+	if (_useImageResampler)
 		_imageResampler.setVideoMode(_videoMode);
-	}
 }
 
 void Grabber::setVideoStandard(VideoStandard videoStandard)
@@ -51,8 +49,8 @@ bool Grabber::setPixelDecimation(int pixelDecimation)
 	{
 		Debug(_log,"Set image size decimation to %d", pixelDecimation);
 		_pixelDecimation = pixelDecimation;
-		_imageResampler.setHorizontalPixelDecimation(pixelDecimation);
-		_imageResampler.setVerticalPixelDecimation(pixelDecimation);
+		if (_useImageResampler)
+			_imageResampler.setPixelDecimation(pixelDecimation);
 
 		return true;
 	}
@@ -64,10 +62,8 @@ void Grabber::setFlipMode(FlipMode mode)
 {
 	Debug(_log,"Set flipmode to %s", QSTRING_CSTR(flipModeToString(mode)));
 	_flipMode = mode;
-	if ( _useImageResampler )
-	{
+	if (_useImageResampler)
 		_imageResampler.setFlipMode(_flipMode);
-	}
 }
 
 void Grabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTop, unsigned cropBottom)
@@ -86,19 +82,10 @@ void Grabber::setCropping(unsigned cropLeft, unsigned cropRight, unsigned cropTo
 	_cropTop    = cropTop;
 	_cropBottom = cropBottom;
 
-	if ( _useImageResampler )
-	{
-		_imageResampler.setCropping(cropLeft, cropRight, cropTop, cropBottom);
-	}
-	else
-	{
-		_imageResampler.setCropping(0, 0, 0, 0);
-	}
+	(_useImageResampler) ? _imageResampler.setCropping(cropLeft, cropRight, cropTop, cropBottom) : _imageResampler.setCropping(0, 0, 0, 0);
 
 	if (cropLeft > 0 || cropRight > 0 || cropTop > 0 || cropBottom > 0)
-	{
 		Info(_log, "Cropping image: width=%d height=%d; crop: left=%d right=%d top=%d bottom=%d ", _width, _height, cropLeft, cropRight, cropTop, cropBottom);
-	}
 }
 
 bool Grabber::setInput(int input)
@@ -126,6 +113,8 @@ bool Grabber::setWidthHeight(int width, int height)
 		Debug(_log, "Set new width: %d, height: %d for capture", width, height);
 		_width = width;
 		_height = height;
+		if (_useImageResampler)
+			_imageResampler.setWidthHeight(width, height);
 		return true;
 	}
 	return false;

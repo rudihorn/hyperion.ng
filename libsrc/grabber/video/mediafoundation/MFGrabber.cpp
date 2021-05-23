@@ -2,9 +2,8 @@
 #include "grabber/MFGrabber.h"
 
 // Constants
-namespace { const bool verbose = true; }
+namespace { const bool verbose = false; }
 
-// Need more video properties? Visit https://docs.microsoft.com/en-us/windows/win32/api/strmif/ne-strmif-videoprocampproperty
 using VideoProcAmpPropertyMap = QMap<VideoProcAmpProperty, QString>;
 inline QMap<VideoProcAmpProperty, QString> initVideoProcAmpPropertyMap()
 {
@@ -23,12 +22,11 @@ Q_GLOBAL_STATIC_WITH_ARGS(VideoProcAmpPropertyMap, _videoProcAmpPropertyMap, (in
 
 MFGrabber::MFGrabber()
 	: Grabber("V4L2:MEDIA_FOUNDATION")
+	, _hr(S_FALSE)
 	, _currentDeviceName("none")
 	, _newDeviceName("none")
-	, _hr(S_FALSE)
 	, _sourceReader(nullptr)
 	, _sourceReaderCB(nullptr)
-	, _threadManager(nullptr)
 	, _pixelFormat(PixelFormat::NO_CHANGE)
 	, _pixelFormatConfig(PixelFormat::NO_CHANGE)
 	, _lineLength(-1)
@@ -63,28 +61,16 @@ MFGrabber::~MFGrabber()
 	SAFE_RELEASE(_sourceReader);
 	SAFE_RELEASE(_sourceReaderCB);
 
-	if (_threadManager)
-		delete _threadManager;
-	_threadManager = nullptr;
-
 	if (SUCCEEDED(_hr) && SUCCEEDED(MFShutdown()))
 		CoUninitialize();
 }
 
 bool MFGrabber::prepare()
 {
-	if (SUCCEEDED(_hr))
-	{
-		if (!_sourceReaderCB)
-			_sourceReaderCB = new SourceReaderCB(this);
+	if (SUCCEEDED(_hr) && !_sourceReaderCB)
+		_sourceReaderCB = new SourceReaderCB(this);
 
-		if (!_threadManager)
-			_threadManager = new EncoderThreadManager(this);
-
-		return (_sourceReaderCB != nullptr && _threadManager != nullptr);
-	}
-
-	return false;
+	return (_sourceReaderCB != nullptr);
 }
 
 bool MFGrabber::start()
@@ -93,10 +79,7 @@ bool MFGrabber::start()
 	{
 		if (init())
 		{
-			connect(_threadManager, &EncoderThreadManager::newFrame, this, &MFGrabber::newThreadFrame);
-			_threadManager->start();
-			DebugIf(verbose, _log, "Decoding threads: %d", _threadManager->_threadCount);
-
+			connect(&_imageResampler, &ImageResampler::newFrame, this, &MFGrabber::newThreadFrame);
 			start_capturing();
 			Info(_log, "Started");
 			return true;
@@ -116,10 +99,9 @@ void MFGrabber::stop()
 	if (_initialized)
 	{
 		_initialized = false;
-		_threadManager->stop();
-		disconnect(_threadManager, nullptr, nullptr, nullptr);
+		disconnect(&_imageResampler, nullptr, nullptr, nullptr);
+		while (_sourceReaderCB->isBusy()) {}
 		_sourceReader->Flush(MF_SOURCE_READER_FIRST_VIDEO_STREAM);
-		_sourceReaderCB->Wait();
 		SAFE_RELEASE(_sourceReader);
 		_deviceProperties.clear();
 		_deviceControls.clear();
@@ -335,13 +317,6 @@ HRESULT MFGrabber::init_device(QString deviceName, DeviceProperties props)
 		goto done;
 	}
 
-	hr = _sourceReaderCB->InitializeVideoEncoder(type, pixelformat);
-	if (FAILED(hr))
-	{
-		error = QString("Failed to initialize the Video Encoder (%1)").arg(hr);
-		goto done;
-	}
-
 	hr = _sourceReader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, nullptr, type);
 	if (FAILED(hr))
 	{
@@ -359,8 +334,43 @@ done:
 		_pixelFormat = props.pf;
 		_width = props.width;
 		_height = props.height;
-		_frameByteSize = _width * _height * 3;
-		_lineLength = _width * 3;
+
+		switch (props.pf)
+		{
+			case PixelFormat::UYVY:
+			case PixelFormat::YUYV:
+			case PixelFormat::BGR16:
+			{
+				_frameByteSize = props.width * props.height * 2;
+				_lineLength = props.width * 2;
+			}
+			break;
+			case PixelFormat::BGR24:
+			{
+				_frameByteSize = props.width * props.height * 3;
+				_lineLength = props.width * 3;
+			}
+			break;
+			case PixelFormat::RGB32:
+			case PixelFormat::BGR32:
+			{
+				_frameByteSize = props.width * props.height * 4;
+				_lineLength = props.width * 4;
+			}
+			break;
+			case PixelFormat::NV12:
+			{
+				_frameByteSize = (6 * props.width * props.height) / 4;
+				_lineLength = props.width;
+			}
+			break;
+			case PixelFormat::I420:
+			{
+				_frameByteSize = (6 * props.width * props.height) / 4;
+				_lineLength = props.width;
+			}
+			break;
+		}
 	}
 
 	// Cleanup
@@ -508,43 +518,32 @@ void MFGrabber::enumVideoCaptureDevices()
 
 void MFGrabber::start_capturing()
 {
-	if (_initialized && _sourceReader && _threadManager)
+	if (_initialized && _sourceReader)
 	{
 		HRESULT hr = _sourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, NULL, NULL, NULL, NULL);
-		if (!SUCCEEDED(hr))
+		if (FAILED(hr))
 			Error(_log, "ReadSample (%i)", hr);
-	}
-}
-
-void MFGrabber::process_image(const void *frameImageBuffer, int size)
-{
-	int processFrameIndex = _currentFrame++;
-
-	// frame skipping
-	if ((processFrameIndex % (_fpsSoftwareDecimation + 1) != 0) && (_fpsSoftwareDecimation > 0))
-		return;
-
-	// We do want a new frame...
-	if (size < _frameByteSize && _pixelFormat != PixelFormat::MJPEG)
-		Error(_log, "Frame too small: %d != %d", size, _frameByteSize);
-	else if (_threadManager != nullptr)
-	{
-		for (int i = 0; i < _threadManager->_threadCount; i++)
-		{
-			if (!_threadManager->_threads[i]->isBusy())
-			{
-				_threadManager->_threads[i]->setup(_pixelFormat, (uint8_t*)frameImageBuffer, size, _width, _height, _lineLength, _cropLeft, _cropTop, _cropBottom, _cropRight, _videoMode, _flipMode, _pixelDecimation);
-				_threadManager->_threads[i]->process();
-				break;
-			}
-		}
 	}
 }
 
 void MFGrabber::receive_image(const void *frameImageBuffer, int size)
 {
-	process_image(frameImageBuffer, size);
-	start_capturing();
+	if (frameImageBuffer != nullptr && size > 0)
+	{
+		int processFrameIndex = _currentFrame++;
+
+		// frame skipping
+		if ((processFrameIndex % (_fpsSoftwareDecimation + 1) == 0) || (_fpsSoftwareDecimation <= 0))
+		{
+			// We do want a new frame...
+			if (size < _frameByteSize && _pixelFormat != PixelFormat::MJPEG)
+				Error(_log, "Frame too small: %d != %d", size, _frameByteSize);
+			else
+				_imageResampler.processImage((const uint8_t*)frameImageBuffer, size, _pixelFormat);
+		}
+
+		start_capturing();
+	}
 }
 
 void MFGrabber::newThreadFrame(Image<ColorRgb> image)

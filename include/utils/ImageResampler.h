@@ -1,31 +1,42 @@
 #pragma once
 
+// util includes
 #include <utils/VideoMode.h>
 #include <utils/PixelFormat.h>
 #include <utils/Image.h>
 #include <utils/ColorRgb.h>
+#include <utils/EncoderThread.h>
 
-class ImageResampler
+// Determine the cmake options
+#include <HyperionConfig.h>
+
+class ImageResampler: public QObject
 {
+	Q_OBJECT
 public:
 	ImageResampler();
-	~ImageResampler() {}
+	~ImageResampler();
 
-	void setHorizontalPixelDecimation(int decimator) { _horizontalDecimation = decimator; }
-	void setVerticalPixelDecimation(int decimator) { _verticalDecimation = decimator; }
+	void setPixelDecimation(int decimator) { _pixelDecimation = decimator; }
+	void setWidthHeight(int width, int height);
 	void setCropping(int cropLeft, int cropRight, int cropTop, int cropBottom);
 	void setVideoMode(VideoMode mode) { _videoMode = mode; }
 	void setFlipMode(FlipMode mode) { _flipMode = mode; }
-	void processImage(const uint8_t * data, int width, int height, int lineLength, PixelFormat pixelFormat, Image<ColorRgb> & outputImage) const;
+	void processImage(const uint8_t * data, size_t sampleSize, PixelFormat pixelFormat);
+
+signals:
+	void newFrame(const Image<ColorRgb>& data);
 
 private:
-	int _horizontalDecimation;
-	int _verticalDecimation;
-	int _cropLeft;
-	int _cropRight;
-	int _cropTop;
-	int _cropBottom;
-	VideoMode _videoMode;
-	FlipMode _flipMode;
+	int						_pixelDecimation,
+							_width,
+							_height,
+							_cropLeft,
+							_cropRight,
+							_cropTop,
+							_cropBottom;
+	VideoMode				_videoMode;
+	FlipMode				_flipMode;
+	EncoderThreadManager*	_threadManager;
 };
 

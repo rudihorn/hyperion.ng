@@ -1,4 +1,11 @@
-# Define the current source locations
+find_package(libyuv REQUIRED)
+include_directories(hyperion-utils ${libyuv_INCLUDE_DIRS})
+
+find_package(TurboJPEG REQUIRED)
+if (TURBOJPEG_FOUND)
+	message( STATUS "Using Turbo JPEG library: ${TurboJPEG_LIBRARY}")
+	include_directories(${TurboJPEG_INCLUDE_DIRS})
+endif ()
 
 # Include the python directory. Also include the parent (which is for example /usr/include)
 # which may be required when it is not includes by the (cross-) compiler by default.
@@ -12,6 +19,7 @@ else()
 	add_definitions(-DPYTHON_VERSION_MAJOR_MINOR=${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR})
 endif()
 
+# Define the current source locations
 SET(CURRENT_HEADER_DIR ${CMAKE_SOURCE_DIR}/include/utils)
 SET(CURRENT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/libsrc/utils)
 
@@ -31,4 +39,6 @@ target_link_libraries(hyperion-utils
 	Qt5::Core
 	Qt5::Gui
 	Qt5::Network
+	yuv
+	${TurboJPEG_LIBRARY}
 )

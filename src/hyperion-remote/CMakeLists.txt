@@ -6,8 +6,10 @@ find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
 # The following I do not understand completely...
 # libQtCore.so uses some hardcoded library path inside which are incorrect after copying the file RPi file system
 # Therefore, an extra path is needed on which to find the required libraries
-IF ( EXISTS ${CMAKE_FIND_ROOT_PATH}/lib/arm-linux-gnueabihf )
-	LINK_DIRECTORIES(${LINK_DIRECTORIES} ${CMAKE_FIND_ROOT_PATH}/lib/arm-linux-gnueabihf)
+IF ( "${PLATFORM}" MATCHES rpi)
+	IF ( EXISTS ${CMAKE_FIND_ROOT_PATH}/lib/arm-linux-gnueabihf )
+		LINK_DIRECTORIES(${LINK_DIRECTORIES} ${CMAKE_FIND_ROOT_PATH}/lib/arm-linux-gnueabihf)
+	ENDIF()
 ENDIF()
 
 set(hyperion-remote_HEADERS

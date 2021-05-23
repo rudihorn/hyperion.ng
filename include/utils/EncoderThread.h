@@ -2,18 +2,19 @@
 
 // Qt includes
 #include <QThread>
+#include <QMap>
 
 // util includes
+#include <utils/VideoMode.h>
 #include <utils/PixelFormat.h>
-#include <utils/ImageResampler.h>
+#include <utils/Image.h>
+#include <utils/ColorRgb.h>
+
+// libyuv
+#include <libyuv.h>
 
 // Determine the cmake options
 #include <HyperionConfig.h>
-
-// Turbo JPEG decoder
-#ifdef HAVE_TURBO_JPEG
-	#include <turbojpeg.h>
-#endif
 
 /// Encoder thread for USB devices
 class EncoderThread : public QObject
@@ -24,8 +25,8 @@ public:
 	~EncoderThread();
 
 	void setup(
-		PixelFormat pixelFormat, uint8_t* sharedData,
-		int size, int width, int height, int lineLength,
+		PixelFormat pixelFormat, const uint8_t* data,
+		size_t sampleSize, int width, int height,
 		unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
 		VideoMode videoMode, FlipMode flipMode, int pixelDecimation);
 
@@ -38,30 +39,19 @@ signals:
 	void newFrame(const Image<ColorRgb>& data);
 
 private:
-	PixelFormat			_pixelFormat;
-	uint8_t*			_localData,
-						*_flipBuffer;
-	int					_scalingFactorsCount,
-						_width,
-						_height,
-						_lineLength,
-						_currentFrame,
-						_pixelDecimation;
-	unsigned long		_size;
-	unsigned			_cropLeft,
-						_cropTop,
-						_cropBottom,
-						_cropRight;
-	FlipMode			_flipMode;
-	ImageResampler		_imageResampler;
-
-#ifdef HAVE_TURBO_JPEG
-	tjhandle			_transform, _decompress;
-	tjscalingfactor*	_scalingFactors;
-	tjtransform*		_xform;
-
-	void processImageMjpeg();
-#endif
+	PixelFormat				_pixelFormat;
+	uint8_t*				_data;
+	int						_width,
+							_height,
+							_pixelDecimation;
+	size_t					_size;
+	unsigned				_cropLeft,
+							_cropTop,
+							_cropBottom,
+							_cropRight;
+	FlipMode				_flipMode;
+	VideoMode				_videoMode;
+	QMap<PixelFormat, int>	_videoFormatFourCCMap;
 };
 
 template <typename TThread> class Thread : public QThread
@@ -85,15 +75,15 @@ public:
 	EncoderThread* thread() const { return qobject_cast<EncoderThread*>(_thread); }
 
 	void setup(
-		PixelFormat pixelFormat, uint8_t* sharedData,
-		int size, int width, int height, int lineLength,
+		PixelFormat pixelFormat, const uint8_t* data,
+		size_t sampleSize, int width, int height,
 		unsigned cropLeft, unsigned cropTop, unsigned cropBottom, unsigned cropRight,
 		VideoMode videoMode, FlipMode flipMode, int pixelDecimation)
 	{
 		auto encThread = qobject_cast<EncoderThread*>(_thread);
 		if (encThread != nullptr)
-			encThread->setup(pixelFormat, sharedData,
-				size, width, height, lineLength,
+			encThread->setup(pixelFormat, data,
+				sampleSize, width, height,
 				cropLeft, cropTop, cropBottom, cropRight,
 				videoMode, flipMode, pixelDecimation);
 	}

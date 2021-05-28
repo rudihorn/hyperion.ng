@@ -80,6 +80,31 @@ macro(DeployUnix TARGET)
 			endforeach()
 		endif(OPENSSL_FOUND)
 
+		if (ENABLE_MF AND TURBOJPEG_FOUND)
+			foreach(turbojpeg_lib ${TURBOJPEG_LIBRARIES})
+				get_prerequisites(${turbojpeg_lib} turbojpeg_deps 0 1 "" "")
+
+				foreach(turbojpeg_dep ${turbojpeg_deps})
+					get_filename_component(resolved ${turbojpeg_dep} NAME_WE)
+					list(FIND SYSTEM_LIBS_SKIP ${resolved} _index)
+					if (${_index} GREATER -1)
+						continue() # Skip system libraries
+					else()
+						gp_resolve_item("${turbojpeg_lib}" "${turbojpeg_dep}" "" "" resolved_file)
+						get_filename_component(resolved_file ${resolved_file} ABSOLUTE)
+						gp_append_unique(PREREQUISITE_LIBS ${resolved_file})
+						get_filename_component(file_canonical ${resolved_file} REALPATH)
+						gp_append_unique(PREREQUISITE_LIBS ${file_canonical})
+					endif()
+				endforeach()
+
+				gp_append_unique(PREREQUISITE_LIBS ${turbojpeg_lib})
+				get_filename_component(file_canonical ${turbojpeg_lib} REALPATH)
+				gp_append_unique(PREREQUISITE_LIBS ${file_canonical})
+			endforeach()
+		endif()
+
+
 		# Detect the Qt5 plugin directory, source: https://github.com/lxde/lxqt-qtplugin/blob/master/src/CMakeLists.txt
 		get_target_property(QT_QMAKE_EXECUTABLE ${Qt5Core_QMAKE_EXECUTABLE} IMPORTED_LOCATION)
 		execute_process(
